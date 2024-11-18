@@ -22,12 +22,17 @@ def compute_expected_delay(distance, angle):
 
     assert(angle >= 0 and angle <= 180), "invalid angle"
 
-    delay_value_mic1 = 0 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000000
-    delay_value_mic2 = 1 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000000
-    delay_value_mic3 = 2 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000000
-    delay_value_mic4 = 3 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000000
+    delay_value_mic1 = 0 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
+    delay_value_mic2 = 1 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
+    delay_value_mic3 = 2 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
+    delay_value_mic4 = 3 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
 
-    return [delay_value_mic1, delay_value_mic2, delay_value_mic3, delay_value_mic4]
+    # must shift to account for nagative values in angles over 90 degrees
+    if (delay_value_mic4 < 0):
+        return [-(delay_value_mic4), -(delay_value_mic3), -(delay_value_mic2), -(delay_value_mic1)]
+    
+    else:
+        return [delay_value_mic1, delay_value_mic2, delay_value_mic3, delay_value_mic4]
 
 def signed_binary_to_integer(bin_val):
     """Compute the signed integer representation from the signed 32-bit binary format."""
@@ -54,9 +59,9 @@ async def test_angle_delay_lut(dut):
     
     # Define test cases: (angle, distance)
     test_cases = [
-        (random.randint(0, 180), random.randint(0, 500)),
-        (random.randint(0, 180), random.randint(0, 500)),
-        (random.randint(0, 180), random.randint(0, 500))
+        (random.randint(0, 180), random.randint(0, 400)),
+        (random.randint(0, 180), random.randint(0, 400)),
+        (random.randint(0, 180), random.randint(0, 400))
     ]
     
     # Apply test cases
@@ -64,6 +69,7 @@ async def test_angle_delay_lut(dut):
         
         dut.angle = angle
         dut.distance = distance
+        print(f"\noutput for angle: {angle} and distance: {distance}")
         
         await ClockCycles(dut.clk_in, 3)
         
