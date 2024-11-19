@@ -45,8 +45,8 @@ async def test_single_microphone(dut):
 
     # Check if the received data matches the expected value
     await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
-    assert dut.audio_valid_out.value == 1, "audio_valid should be high after receiving 24 bits"
-    assert dut.audio_out.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out.value}"
+    #assert dut.audio_valid_out.value == 1, "audio_valid should be high after receiving 24 bits"
+    assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
 
 
     for i in range(9):
@@ -85,16 +85,23 @@ async def test_four_microphones(dut):
             dut.sd.value= bit
             await RisingEdge(dut.sck)
 
-
-        # Check if the received data matches the expected value
-        await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
-        assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving 24 bits, failed on {i} signal"
-        assert dut.audio_out.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out.value}"
+        if i ==3:
+            # Check if the received data matches the expected value
+            await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+            assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
+            assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
+            assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
+            assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
+            assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
+        else:
+            await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+        
 
 
         for j in range(7):
             await RisingEdge(dut.sck)
-       
+    
+
 
 
 @cocotb.test()
@@ -127,13 +134,16 @@ async def test_two_samples_four_microphones(dut):
                 dut.sd.value= bit
                 await RisingEdge(dut.sck)
 
-
-            # Check if the received data matches the expected value
-            await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
-            assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving 24 bits, failed on {i} signal"
-            assert dut.audio_out.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out.value}"
-
-
+            if i == 3:
+                # Check if the received data matches the expected value
+                await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+                assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
+                assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
+                assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
+                assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
+                assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
+            else:
+                await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
             for j in range(7):
                 await RisingEdge(dut.sck)
    
