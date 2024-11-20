@@ -46,7 +46,7 @@ async def test_single_microphone(dut):
     # Check if the received data matches the expected value
     await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
     #assert dut.audio_valid_out.value == 1, "audio_valid should be high after receiving 24 bits"
-    assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
+    assert dut.audio_out.value[0] == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
 
 
     for i in range(9):
@@ -89,10 +89,13 @@ async def test_four_microphones(dut):
             # Check if the received data matches the expected value
             await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
             assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
-            assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
-            assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
-            assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
-            assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
+
+            audio_out_list = dut.audio_out.value
+           
+            # Unpack the array (24 bits per element)
+            for k in range(4):
+                audio_sample = audio_out_list[k]
+                assert audio_sample == expected_value, f"Expected {expected_value}, but got {audio_sample}"
         else:
             await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
         
@@ -138,10 +141,12 @@ async def test_two_samples_four_microphones(dut):
                 # Check if the received data matches the expected value
                 await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
                 assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
-                assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
-                assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
-                assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
-                assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
+                audio_out_list = dut.audio_out.value
+           
+                # Unpack the array (24 bits per element)
+                for k in range(4):
+                    audio_sample = audio_out_list[k]
+                    assert audio_sample == expected_value, f"Expected {expected_value}, but got {audio_sample}"
             else:
                 await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
             for j in range(7):

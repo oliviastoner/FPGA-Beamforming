@@ -11,10 +11,8 @@ module tdm_receive
         input wire sd, // Serial Data
         input wire rst_in, // system reset
         output logic wso, // slot number for audio
-        output logic [BIT_WIDTH-1:0] audio_out1, // audio from microphone 1
-        output logic [BIT_WIDTH-1:0] audio_out2, // audio from microphone 2
-        output logic [BIT_WIDTH-1:0] audio_out3, // audio from microphone 3
-        output logic [BIT_WIDTH-1:0] audio_out4, // audio from microphone 4
+        output logic [BIT_WIDTH-1:0] audio_out[SLOTS], // audio from microphone 1
+       
         output logic audio_valid_out // valid signal, HIGH when valid
      );
    
@@ -35,10 +33,8 @@ module tdm_receive
             if(ws)begin
                 sck_counter <=0;
                 curr_slot<=0;
-                audio_out1<=0;
-                audio_out2<=0;
-                audio_out3<=0;
-                audio_out4<=0;
+                for (int i = 0; i < SLOTS; i++)
+			        audio_out[i]<=0;
                 audio_valid_out<=0;
                 active<=1;
             end
@@ -49,36 +45,20 @@ module tdm_receive
                     // add logic so it only starts doing reads when a WS signal comes by
                     if(sck_counter <BIT_WIDTH-1) begin
                         // shift in bits, MSB first
-                        case (curr_slot) 
-                        3'b00: audio_out1 <= {audio_out1[BIT_WIDTH-2:0],sd};
-                        3'b01: audio_out2 <= {audio_out2[BIT_WIDTH-2:0],sd};
-                        3'b10: audio_out3 <= {audio_out3[BIT_WIDTH-2:0],sd};
-                        3'b11: audio_out4 <= {audio_out4[BIT_WIDTH-2:0],sd};
-                        default: audio_out1 <= {audio_out1[BIT_WIDTH-2:0],sd};
-                        endcase
+                        audio_out[curr_slot] <= {audio_out[curr_slot][BIT_WIDTH-2:0],sd};
                         
                         sck_counter <= sck_counter + 1;
 
 
                     end
                     else if(sck_counter == BIT_WIDTH-1)begin
-                        case (curr_slot) 
-                        3'b00: audio_out1 <= {audio_out1[BIT_WIDTH-2:0],sd};
-                        3'b01: audio_out2 <= {audio_out2[BIT_WIDTH-2:0],sd};
-                        3'b10: audio_out3 <= {audio_out3[BIT_WIDTH-2:0],sd};
-                        3'b11: begin 
-                            audio_out4 <= {audio_out4[BIT_WIDTH-2:0],sd};
-                             // raise high for a cycle now that they're all valid
+                        // shift in bits, MSB first
+                        audio_out[curr_slot] <= {audio_out[curr_slot][BIT_WIDTH-2:0],sd};
+                        if(curr_slot == SLOTS-1)begin
+                            // raise high for a cycle now that they're all valid
                             audio_valid_out<=1;
                         end
-                        default: audio_out1 <= {audio_out1[BIT_WIDTH-2:0],sd};
-                        endcase
-                       
-
-
                         sck_counter <= sck_counter + 1;
-
-
                     end
                     else if(sck_counter == TOTAL_CYCLES )begin
                         // set up like the beginning
@@ -88,10 +68,8 @@ module tdm_receive
                         if(curr_slot == SLOTS -1)begin
                             curr_slot <=0;
                             active<=0;
-                            audio_out1<=0;
-                            audio_out2<=0;
-                            audio_out3<=0;
-                            audio_out4<=0;
+                            for (int i = 0; i < SLOTS; i++)
+			                    audio_out[i]<=0;
                         end
                         else begin
                             curr_slot<=curr_slot +1;
