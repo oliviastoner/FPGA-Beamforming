@@ -21,7 +21,7 @@ async def test_single_microphone(dut):
 
 
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck, 10, units="ns").start())
+    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
    
 
 
@@ -30,27 +30,27 @@ async def test_single_microphone(dut):
     expected_value = 0b101000100001100001001100 #int(''.join(map(str, sample_data)), 2)
 
 
-    # Send the WS pulse
-    dut.ws.value = 1
-    await RisingEdge(dut.sck)
-    await FallingEdge(dut.sck)
-    dut.ws.value = 0
+    # Send the ws_in pulse
+    dut.ws_in.value = 1
+    await RisingEdge(dut.sck_in)
+    await FallingEdge(dut.sck_in)
+    dut.ws_in.value = 0
 
 
-    # Send the sample data bit-by-bit on the rising edge of SCK
+    # Send the sample data bit-by-bit on the rising edge of sck_in
     for bit in sample_data:
-        dut.sd.value= bit
-        await RisingEdge(dut.sck)
+        dut.sd_in.value= bit
+        await RisingEdge(dut.sck_in)
 
 
     # Check if the received data matches the expected value
-    await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+    await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
     #assert dut.audio_valid_out.value == 1, "audio_valid should be high after receiving 24 bits"
     assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
 
 
     for i in range(9):
-        await RisingEdge(dut.sck)
+        await RisingEdge(dut.sck_in)
     assert dut.curr_slot.value == 1, "curr slot should now be 1"
    
 
@@ -62,7 +62,7 @@ async def test_four_microphones(dut):
 
    
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck, 10, units="ns").start())
+    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
    
 
 
@@ -71,35 +71,35 @@ async def test_four_microphones(dut):
     expected_value = 0b101000100001100001001100 #int(''.join(map(str, sample_data)), 2)
 
 
-    # Send the WS pulse
-    dut.ws.value = 1
-    await RisingEdge(dut.sck)
-    await FallingEdge(dut.sck)
-    dut.ws.value = 0
+    # Send the ws_in pulse
+    dut.ws_in.value = 1
+    await RisingEdge(dut.sck_in)
+    await FallingEdge(dut.sck_in)
+    dut.ws_in.value = 0
 
 
     for i in range(4):
         #assert dut.curr_slot.value == (i)%4, f"curr slot should now be {(i%4)}, but got {dut.curr_slot.value}"
-        # Send the sample data bit-by-bit on the rising edge of SCK
+        # Send the sample data bit-by-bit on the rising edge of sck_in
         for bit in sample_data:
-            dut.sd.value= bit
-            await RisingEdge(dut.sck)
+            dut.sd_in.value= bit
+            await RisingEdge(dut.sck_in)
 
         if i ==3:
             # Check if the received data matches the expected value
-            await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+            await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
             assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
             assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
             assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
             assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
             assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
         else:
-            await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+            await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
         
 
 
         for j in range(7):
-            await RisingEdge(dut.sck)
+            await RisingEdge(dut.sck_in)
     
 
 
@@ -110,7 +110,7 @@ async def test_two_samples_four_microphones(dut):
 
 
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck, 10, units="ns").start())
+    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
    
 
 
@@ -120,32 +120,32 @@ async def test_two_samples_four_microphones(dut):
 
 
     for _ in range(2):
-        # Send the WS pulse
-        dut.ws.value = 1
-        await RisingEdge(dut.sck)
-        await FallingEdge(dut.sck)
-        dut.ws.value = 0
+        # Send the ws_in pulse
+        dut.ws_in.value = 1
+        await RisingEdge(dut.sck_in)
+        await FallingEdge(dut.sck_in)
+        dut.ws_in.value = 0
 
 
         for i in range(4):
             #assert dut.curr_slot.value == (i)%4, f"curr slot should now be {(i%4)}, but got {dut.curr_slot.value}"
-            # Send the sample data bit-by-bit on the rising edge of SCK
+            # Send the sample data bit-by-bit on the rising edge of sck_in
             for bit in sample_data:
-                dut.sd.value= bit
-                await RisingEdge(dut.sck)
+                dut.sd_in.value= bit
+                await RisingEdge(dut.sck_in)
 
             if i == 3:
                 # Check if the received data matches the expected value
-                await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+                await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
                 assert dut.audio_valid_out.value == 1, f"audio_valid should be high after receiving all mics, failed on {i} signal"
                 assert dut.audio_out1.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
                 assert dut.audio_out2.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out2.value}"
                 assert dut.audio_out3.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out3.value}"
                 assert dut.audio_out4.value == expected_value, f"Expected {expected_value}, but got {dut.audio_out4.value}"
             else:
-                await RisingEdge(dut.sck)  # Allow time for `audio_valid` signal to propagate
+                await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
             for j in range(7):
-                await RisingEdge(dut.sck)
+                await RisingEdge(dut.sck_in)
    
 
 
