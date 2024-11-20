@@ -4,29 +4,22 @@ import librosa.display
 import matplotlib.pyplot as plt
 import soundfile as sf
 
-def beamforming_delay(angle, speed_of_sound, microphone_positions):
+def beamforming_delay(angle, distance_between_microphones, num_microphones):
     """
     Calculates the time delay for each microphone in a beamforming array 
-    based on the desired steering angle.
+    based on the desired steering angle and the number of microphones in the array.
 
     Args:
-        angle (float): The desired steering angle in radians.
-        speed_of_sound (float): The speed of sound in the medium (m/s).
-        microphone_positions (np.ndarray): A 2D array of microphone positions (x, y) in meters.
+        angle: the desired steering angle in degrees.
+        distance_between_microphones: the distance between microphones.
+        num_microphones: the number of microphones.
 
     Returns:
         np.ndarray: An array of time delays in seconds for each microphone.
     """
 
-    # Calculate the distance from the reference microphone (first microphone) 
-    # to the wavefront for each microphone
-    distances = np.dot(microphone_positions, np.array([np.cos(angle), np.sin(angle)]))
-
-    # Calculate the time delay for each microphone
-    delays = distances / speed_of_sound
-
-    # Adjust the delays relative to the first microphone (reference)
-    delays = delays - delays[0]
+    # Calculate the delay for each microphone
+    delays = np.array([(i * distance_between_microphones * np.cos(angle * np.pi / 180) / 343) for i in range(num_microphones)])
 
     return delays
 
@@ -52,25 +45,21 @@ def delay_and_sum(mic_signals, delays):
     sample_idx = 0
 
     for signal, delay in zip(mic_signals, delays):
+
         # Calculate the number of samples to delay
-        delay_samples = int(delay * 1000000)  # Assuming 1MHz sample rate
+        delay_samples = int(delay * 44100)  # Assuming 44.1 KHz sample rate
         signal_len = len(signal)
-        # Zero-pad the signal on the left if delay is positive, on the right if negative
-        # if delay_samples > 0:
+
         for i in range (delay_samples, delay_samples + signal_len):
             delayed_outputs[sample_idx][i] = signal[i-delay_samples]
             output_signal[i] += signal[i-delay_samples]
-        # delayed_signal = np.pad(output_signalignal, 0, mode='constant')
-        # else:
-        #     delayed_signal = np.pad(signal, (0, -delay_samples), mode='constant')
+
         sample_idx += 1
-        # Add the delayed signal to the output
-        # output_signal += delayed_signal[:max_len]  # Ensure signals are aligned properly
 
     return output_signal, delayed_outputs
 
 
-def load_audio(file_paths, sr=1000000):
+def load_audio(file_paths, sr=44100):
     """
     Load multiple audio files into numpy arrays.
 
@@ -87,7 +76,7 @@ def load_audio(file_paths, sr=1000000):
         mic_signals.append(signal)
     return mic_signals
 
-def save_audio(output_signal, output_path, sr=1000000):
+def save_audio(output_signal, output_path, sr=44100):
     """
     Save the output audio signal to a file.
 
@@ -102,39 +91,38 @@ def save_audio(output_signal, output_path, sr=1000000):
 # Example usage
 if __name__ == "__main__":
     # Load the audio signals from different microphones
-    file_paths = ['secret_revealed.wav', 'secret_revealed.wav', 'secret_revealed.wav', 'secret_revealed.wav']
+    file_paths = ['secret_revealed.wav', 'secret_revealed.wav']
     mic_signals = load_audio(file_paths)
 
-    # Specify the delays (in seconds) for each microphone
-    # delays = beamforming_delay(0, 343, [(-1, 0), (-0.75, 0), (-0.5, 0), (-0.25, 0), (0, 0), (0.25, 0), (0.5, 0), (0.75, 0)])  # Example delays in seconds
-    delays = [0, 0.25, 0.5, 0.75]
-    # print(delays)
+    delays = beamforming_delay(45, 1000, 2)
+    print(delays)
 
     # Perform delay-and-sum beamforming
     beamformed_signal, delayed_outputs = delay_and_sum(mic_signals, delays)
+    print(f"\nbeamformed_signal: {beamformed_signal}")
 
     # Save the output beamformed signal
     save_audio(beamformed_signal, 'beamformed_output.wav')
 
     # Optionally, display the waveforms of the input and output
     # plt.figure(figsize=(10, 6))
-    plt.subplots(5, 1, sharey=True)
+    plt.subplots(3, 1, sharey=True)
 
-    plt.subplot(5, 1, 1)
+    plt.subplot(3, 1, 1)
     librosa.display.waveshow(delayed_outputs[0], sr=44100, label='Mic 1', color='#ADD8E6')
     plt.legend()
 
-    plt.subplot(5, 1, 2)
+    plt.subplot(3, 1, 2)
     librosa.display.waveshow(delayed_outputs[1], sr=44100, label='Mic 2', color='#87CEEB')
     plt.legend()
 
-    plt.subplot(5, 1, 3)
-    librosa.display.waveshow(delayed_outputs[2], sr=44100, label='Mic 3', color='#6CA6CD')
-    plt.legend()
+    # plt.subplot(3, 1, 3)
+    # librosa.display.waveshow(delayed_outputs[2], sr=44100, label='Mic 3', color='#6CA6CD')
+    # plt.legend()
 
-    plt.subplot(5, 1, 4)
-    librosa.display.waveshow(delayed_outputs[3], sr=44100, label='Mic 4', color='#4682B4')
-    plt.legend()
+    # plt.subplot(5, 1, 4)
+    # librosa.display.waveshow(delayed_outputs[3], sr=44100, label='Mic 4', color='#4682B4')
+    # plt.legend()
 
     # plt.subplot(9, 1, 5)
     # librosa.display.waveshow(delayed_outputs[4], sr=44100, label='Mic 5', color='#5F9EA0')
@@ -152,7 +140,7 @@ if __name__ == "__main__":
     # librosa.display.waveshow(delayed_outputs[7], sr=44100, label='Mic 8', color='#00008B')
     # plt.legend()
 
-    plt.subplot(5, 1, 5)
+    plt.subplot(3, 1, 3)
     librosa.display.waveshow(beamformed_signal, sr=44100, label='Beamformed Output', color='#00000B')
     plt.legend()
 
