@@ -15,20 +15,22 @@ from cocotb.runner import get_runner
 
 
 # Define the expected speed of sound
-SPEED_OF_SOUND = 343.0  # millimeters/millisecond
+SPEED_OF_SOUND = 343.0  # meters/second
+FREQUENCY = 1_000_000
+DISTANCE = 1
 
-def compute_expected_delay(distance, angle):
-    """Compute the expected delay value based on the given angle, distance, and speed of sound."""
+def compute_expected_delay(angle, distance, frequency):
+    """Compute the expected delay value based on the given distance between mics (m), speed of sound (m/s), and frequency (Hz)."""
 
     assert(angle >= 0 and angle <= 180), "invalid angle"
 
-    delay_value_mic1 = 0 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
-    delay_value_mic2 = 1 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
-    delay_value_mic3 = 2 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
-    delay_value_mic4 = 3 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * 1000
+    delay_value_mic1 = int(0 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * frequency)
+    delay_value_mic2 = int(1 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * frequency)
+    delay_value_mic3 = int(2 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * frequency)
+    delay_value_mic4 = int(3 * math.cos(angle * math.pi / 180) * distance / SPEED_OF_SOUND * frequency)
 
     # must shift to account for nagative values in angles over 90 degrees
-    if (delay_value_mic4 < 0):
+    if (angle > 90):
         return [-(delay_value_mic4), -(delay_value_mic3), -(delay_value_mic2), -(delay_value_mic1)]
     
     else:
@@ -59,17 +61,16 @@ async def test_angle_delay_lut(dut):
     
     # Define test cases: (angle, distance)
     test_cases = [
-        (random.randint(0, 180), random.randint(0, 400)),
-        (random.randint(0, 180), random.randint(0, 400)),
-        (random.randint(0, 180), random.randint(0, 400))
+        random.randint(0, 180),
+        random.randint(0, 180),
+        random.randint(0, 180)
     ]
     
     # Apply test cases
-    for angle, distance in test_cases:
+    for angle in test_cases:
         
         dut.angle = angle
-        dut.distance = distance
-        print(f"\noutput for angle: {angle} and distance: {distance}")
+        print(f"\noutput for angle: {angle}")
         
         await ClockCycles(dut.clk_in, 3)
         
@@ -80,24 +81,24 @@ async def test_angle_delay_lut(dut):
         computed_value_mic4 = signed_binary_to_integer(dut.delay_4.value.binstr)
         print(f"\ncomputed mic 1: {computed_value_mic1}, mic 2: {computed_value_mic2}, mic 3: {computed_value_mic3}, mic 4: {computed_value_mic4}")
 
-        expected_value_mic1, expected_value_mic2, expected_value_mic3, expected_value_mic4 = compute_expected_delay(distance, angle)
+        expected_value_mic1, expected_value_mic2, expected_value_mic3, expected_value_mic4 = compute_expected_delay(angle, DISTANCE, FREQUENCY)
         print(f"\nexpected mic 1: {expected_value_mic1}, mic 2: {expected_value_mic2}, mic 3: {expected_value_mic3}, mic 4: {expected_value_mic4}")
         
         # Compare the computed value with the expected value
         if not math.isclose(computed_value_mic1, expected_value_mic1, abs_tol=1e3):
-            raise AssertionError(f"Test failed for angle={angle}, distance={distance}: "
+            raise AssertionError(f"Test failed for angle={angle}: "
                                 f"Expected {expected_value_mic1}, got {computed_value_mic1}")
         
         if not math.isclose(computed_value_mic2, expected_value_mic2, abs_tol=1e3):
-            raise AssertionError(f"Test failed for angle={angle}, distance={distance}: "
+            raise AssertionError(f"Test failed for angle={angle}: "
                                 f"Expected {expected_value_mic2}, got {computed_value_mic2}")
         
         if not math.isclose(computed_value_mic3, expected_value_mic3, abs_tol=1e3):
-            raise AssertionError(f"Test failed for angle={angle}, distance={distance}: "
+            raise AssertionError(f"Test failed for angle={angle}: "
                                 f"Expected {expected_value_mic3}, got {computed_value_mic3}")
         
         if not math.isclose(computed_value_mic4, expected_value_mic4, abs_tol=1e3):
-            raise AssertionError(f"Test failed for angle={angle}, distance={distance}: "
+            raise AssertionError(f"Test failed for angle={angle}: "
                                 f"Expected {expected_value_mic4}, got {computed_value_mic4}")
         
         await ClockCycles(dut.clk_in, 1) # wait a clock cycle

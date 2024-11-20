@@ -1,4 +1,7 @@
-module delay_bram (
+module delay_bram 
+    #(parameter NUM_MICS = 2,
+    parameter BITS_AUDIO = 24)
+    (
     input logic clk_in,                   // Clock signal
     input logic rst_in,                   // Reset signal
     input logic valid_in,                 // Signal indicating valid input data
@@ -6,16 +9,17 @@ module delay_bram (
     input logic [15:0] delay_2,           // Delay for microphone 2 in microseconds
     input logic [15:0] delay_3,           // Delay for microphone 3 in microseconds
     input logic [15:0] delay_4,           // Delay for microphone 4 in microseconds
-    input logic [15:0] audio_in_1,        // Input mic 1 audio sample to store
-    input logic [15:0] audio_in_2,        // Input mic 2 audio sample to store
-    input logic [15:0] audio_in_3,        // Input mic 3 audio sample to store
-    input logic [15:0] audio_in_4,        // Input mic 4 audio sample to store
-    output logic [15:0] audio_out,        // Output audio (delayed & summed & shifted)
+    input logic [BITS_AUDIO-1:0] audio_in_1,        // Input mic 1 audio sample to store
+    input logic [BITS_AUDIO-1:0] audio_in_2,        // Input mic 2 audio sample to store
+    input logic [BITS_AUDIO-1:0] audio_in_3,        // Input mic 3 audio sample to store
+    input logic [BITS_AUDIO-1:0] audio_in_4,        // Input mic 4 audio sample to store
+    input logic [2:0] num_mics,                     // tells you number of mics
+    output logic [BITS_AUDIO-1:0] audio_out,        // Output audio (delayed & summed & shifted)
     output logic valid_out                // If audio_out is valid
-);
+    );
 
     xilinx_true_dual_port_read_first_2_clock_ram #(
-    .RAM_WIDTH(16),                       // Specify RAM data width
+    .RAM_WIDTH(BITS_AUDIO),                       // Specify RAM data width
     .RAM_DEPTH(2048),                     // Specify RAM depth (number of entries)
     .RAM_PERFORMANCE("HIGH_PERFORMANCE"), // Select "HIGH_PERFORMANCE" or "LOW_LATENCY"
     .INIT_FILE("")                        // Specify name/location of RAM initialization file if using one (leave blank if not)
@@ -39,7 +43,7 @@ module delay_bram (
     );
 
     xilinx_true_dual_port_read_first_2_clock_ram #(
-    .RAM_WIDTH(16),                       // Specify RAM data width
+    .RAM_WIDTH(BITS_AUDIO),                       // Specify RAM data width
     .RAM_DEPTH(2048),                     // Specify RAM depth (number of entries)
     .RAM_PERFORMANCE("HIGH_PERFORMANCE"), // Select "HIGH_PERFORMANCE" or "LOW_LATENCY"
     .INIT_FILE("")                        // Specify name/location of RAM initialization file if using one (leave blank if not)
@@ -63,7 +67,7 @@ module delay_bram (
   );
 
     xilinx_true_dual_port_read_first_2_clock_ram #(
-    .RAM_WIDTH(16),                       // Specify RAM data width
+    .RAM_WIDTH(BITS_AUDIO),                       // Specify RAM data width
     .RAM_DEPTH(2048),                     // Specify RAM depth (number of entries)
     .RAM_PERFORMANCE("HIGH_PERFORMANCE"), // Select "HIGH_PERFORMANCE" or "LOW_LATENCY"
     .INIT_FILE("")                        // Specify name/location of RAM initialization file if using one (leave blank if not)
@@ -87,7 +91,7 @@ module delay_bram (
   );
 
     xilinx_true_dual_port_read_first_2_clock_ram #(
-    .RAM_WIDTH(16),                       // Specify RAM data width
+    .RAM_WIDTH(BITS_AUDIO),                       // Specify RAM data width
     .RAM_DEPTH(2048),                     // Specify RAM depth (number of entries)
     .RAM_PERFORMANCE("HIGH_PERFORMANCE"), // Select "HIGH_PERFORMANCE" or "LOW_LATENCY"
     .INIT_FILE("")                        // Specify name/location of RAM initialization file if using one (leave blank if not)
@@ -118,10 +122,10 @@ module delay_bram (
     );
 
     logic [15:0] rw_addr_mic1, rw_addr_mic2, rw_addr_mic3, rw_addr_mic4 = 0; // Define address pointers for the write/read locations (both same; read first, then write)
-    logic [15:0] audio_out_mic1, audio_out_mic2, audio_out_mic3, audio_out_mic4; // Output audio from the read BRAM slot
+    logic [BITS_AUDIO-1:0] audio_out_mic1, audio_out_mic2, audio_out_mic3, audio_out_mic4; // Output audio from the read BRAM slot
     logic [31:0] num_cycles; // Counts number of cycles to determine when certain BRAM audio should be incorporated into output
-    logic [17:0] summed_audio; // 18-bit audio: all audio summed together
-    logic [15:0] shifted_audio; // divide audio by 4: shift right by 2 to preserve 16-bit audio transmission
+    logic [BITS_AUDIO+1:0] summed_audio; // 18-bit audio: all audio summed together
+    logic [BITS_AUDIO-1:0] shifted_audio; // divide audio by 4: shift right by 2 to preserve 16-bit audio transmission
     logic read_all = 0; // boolean value representing whether you have exceeded the delay of all audios and can now read from all 4 BRAMs
     logic valid_out_r1, valid_out_r2, valid_out_r3, valid_out_r4 = 0; // registers to pipeline the valid_in signal to account for 5-cycle delay from input audio to output audio
 
@@ -205,7 +209,7 @@ module delay_bram (
         // pipeline valid_in signals to valid_out; account for 5-cycle input --> output delay
         // 3 cycles delay for BRAM read, 1 for sum, and 1 for shift
         summed_audio <= (audio_out_mic4 + audio_out_mic3 + audio_out_mic2 + audio_out_mic1);
-        audio_out <= (summed_audio >> 2);
+        audio_out <= (summed_audio >> $clog2(NUM_MICS));
         valid_out_r1 <= valid_in;
         valid_out_r2 <= valid_out_r1;
         valid_out_r3 <= valid_out_r2;

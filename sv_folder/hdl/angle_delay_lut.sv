@@ -1,35 +1,26 @@
 module angle_delay_lut (
     input wire clk_in,
     input wire rst_in,
-    input logic [15:0] distance,                 // distance between mics in millimeters
     input logic [7:0] angle,                     // angle can go up to 180 degrees; max 8 bits
     output logic valid_out,                      // tells you if the delay is valid
-    output logic signed [15:0] delay_1,          // time delay for mic 1 in microseconds
-    output logic signed [15:0] delay_2,          // time delay for mic 2 in microseconds 
-    output logic signed [15:0] delay_3,          // time delay for mic 3 in microseconds 
-    output logic signed [15:0] delay_4           // time delay for mic 4 in microseconds  
+    output logic signed [15:0] delay_1,          // time delay for mic 1 in cycles
+    output logic signed [15:0] delay_2,          // time delay for mic 2 in cycles
+    output logic signed [15:0] delay_3,          // time delay for mic 3 in cycles
+    output logic signed [15:0] delay_4           // time delay for mic 4 in cycles
 );
 
 // Define the lookup table.
 
-// Each entry corresponds to the value of cos(theta) / c * 1,000,000.
+// Each entry corresponds to the value of d * cos(theta) / c * frequency.
 // We scale this up to avoid fixed / floating-point storage & calculations.
 
 // theta is the input angle value, from 0-180 degrees.
 
-// c is the speed of sound, where we use 343 millimeters/millisecond
+// c is the speed of sound, where we use 343 meters/second
 
-    logic signed [180:0][31:0] delay_table;   // 180 entries, each holding cos(theta) / c * 1,000,000 at that theta value
+    logic signed [180:0][31:0] delay_table;   // 180 entries, each holding d * cos(theta) / c * frequency at that theta value
 
-    // define intermediate registers so that we can divide up process of division and multiplication to avoid nagative WNS val
-    logic signed [31:0] delay_1_midpt;
-    logic signed [31:0] delay_2_midpt;
-    logic signed [31:0] delay_3_midpt;
-    logic signed [31:0] delay_4_midpt;
-    logic valid_out_midpt = 0;
-
-    logic [9:0] division_factor = 1000; // divide output by this so delays are in microseconds
-
+    // initialize LUT 
     initial begin
         delay_table[0] = 2915;
         delay_table[1] = 2915;
@@ -218,11 +209,7 @@ module angle_delay_lut (
     always_ff @(posedge clk_in) begin
         // initialize the lookup table on system reset
         if (rst_in) begin
-            delay_1_midpt <= 0;
-            delay_2_midpt <= 0;
-            delay_3_midpt <= 0;
-            delay_4_midpt <= 0;
-            valid_out_midpt <= 0;
+
             delay_1 <= 0;
             delay_2 <= 0;
             delay_3 <= 0;
@@ -230,39 +217,32 @@ module angle_delay_lut (
             valid_out <= 0;
 
         end else begin
-            // valid output if the angle is in 0-180 range
-            // if angle <= 90, then don't have to shift first 3 delays to account for negative values
+            // if angle <= 90, then don't have to shift first 3 delays to account for negative values.
+            // can just keep output as [0, 20, 40, 60], for example.
             if ((angle >= 0) && (angle <= 90)) begin
-                delay_1_midpt <= ($signed(delay_table[angle]) * $signed(0) * $signed(distance)); // Delay for mic 1 in nanoseconds
-                delay_2_midpt <= ($signed(delay_table[angle]) * $signed(1) * $signed(distance)); // Delay for mic 2 in nanoseconds
-                delay_3_midpt <= ($signed(delay_table[angle]) * $signed(2) * $signed(distance)); // Delay for mic 3 in nanoseconds
-                delay_4_midpt <= ($signed(delay_table[angle]) * $signed(3) * $signed(distance)); // Delay for mic 4 in nanoseconds
-                valid_out_midpt <= 1;
+                delay_1 <= ($signed(delay_table[angle]) * $signed(0)); // num cycles delay for mic 1
+                delay_2 <= ($signed(delay_table[angle]) * $signed(1)); // num cycles delay for mic 2
+                delay_3 <= ($signed(delay_table[angle]) * $signed(2)); // num cycles delay for mic 3
+                delay_4 <= ($signed(delay_table[angle]) * $signed(3)); // num cycles delay for mic 4
+                valid_out <= 1;
 
-            // must shift to account for negative values
+            // must shift to account for negative values.
+            // if the delay output is [0, -20, -40, -60],
+            // this is effectively the same as [60, 40, 20, 0], so we output this instead.
             end else if ((angle > 90) && (angle <= 180)) begin
-                delay_1_midpt <= -($signed(delay_table[angle]) * $signed(3) * $signed(distance)); // Delay for mic 1 in nanoseconds
-                delay_2_midpt <= -($signed(delay_table[angle]) * $signed(2) * $signed(distance)); // Delay for mic 2 in nanoseconds
-                delay_3_midpt <= -($signed(delay_table[angle]) * $signed(1) * $signed(distance)); // Delay for mic 3 in nanoseconds
-                delay_4_midpt <= -($signed(delay_table[angle]) * $signed(0) * $signed(distance)); // Delay for mic 4 in nanoseconds
-                valid_out_midpt <= 1;
+                delay_1 <= -($signed(delay_table[angle]) * $signed(3)); // num cycles delay for mic 1
+                delay_2 <= -($signed(delay_table[angle]) * $signed(2)); // num cycles delay for mic 2
+                delay_3 <= -($signed(delay_table[angle]) * $signed(1)); // num cycles delay for mic 3
+                delay_4 <= -($signed(delay_table[angle]) * $signed(0)); // num cycles delay for mic 4
+                valid_out <= 1;
 
             end else begin
                 // invalid angle; invalid output
-                delay_1_midpt <= 0;
-                delay_2_midpt <= 0;
-                delay_3_midpt <= 0;
-                delay_4_midpt <= 0;
-                valid_out_midpt <= 0;
+                valid_out <= 0;
             end
 
-            // update output according to midpoint values to get delay in microseconds
-            delay_1 <= (delay_1_midpt / division_factor);
-            delay_2 <= (delay_2_midpt / division_factor);
-            delay_3 <= (delay_3_midpt / division_factor);
-            delay_4 <= (delay_4_midpt / division_factor);
-            valid_out <= valid_out_midpt;
-
         end
+
     end
+    
 endmodule

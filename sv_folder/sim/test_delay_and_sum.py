@@ -18,6 +18,8 @@ from cocotb.triggers import Timer, ClockCycles, RisingEdge, FallingEdge, ReadOnl
 from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
 
+NUM_MICS = 2
+
 @cocotb.test()
 async def test_delay_and_sum(dut):
     cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
@@ -34,12 +36,11 @@ async def test_delay_and_sum(dut):
     over_90 = random.randint(0, 1)
 
     # Test input signal setup (simulating audio values for 4 microphones)
-    mic_signals = [
-        [random.randint(0, 0xFFFF) for _ in range(num_samples)],  # Random values for mic 1
-        [random.randint(0, 0xFFFF) for _ in range(num_samples)],  # Random values for mic 2
-        [random.randint(0, 0xFFFF) for _ in range(num_samples)],  # Random values for mic 3
-        [random.randint(0, 0xFFFF) for _ in range(num_samples)]   # Random values for mic 4
-    ]
+    mic_signals = []
+    for i in range(NUM_MICS):
+        mic_signals.append([random.randint(0, 0xFFFF) for _ in range(num_samples)])
+    for j in range(NUM_MICS, 5):
+        mic_signals.append([0 for _ in range(num_samples)])
     print(f"\nmic signals: {mic_signals}")
     
     # Randomly generate delays for each microphone (between 0 and max_delay)
@@ -75,25 +76,25 @@ async def test_delay_and_sum(dut):
         # The output should be the sum of the audio signals from all 4 microphones, 
         # delayed accordingly.
         if (delays[0] == 0 and delays[1] == 0 and delays[2] == 0 and delays[3] == 0):
-            expected_output = sum(mic_signals[j][i] for j in range(4))/4
+            expected_output = sum(mic_signals[j][i] for j in range(4))/NUM_MICS
         elif (delays[0] == 0):
             if (i >= (delays[3])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(4))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(4))/NUM_MICS
             elif (i >= (delays[2])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3))/NUM_MICS
             elif (i >= (delays[1])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(2))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(2))/NUM_MICS
             else:
-                expected_output = mic_signals[0][i]/4
+                expected_output = mic_signals[0][i]/NUM_MICS
         else:
             if (i >= (delays[0])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, -1, -1))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, -1, -1))/NUM_MICS
             elif (i >= (delays[1])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, 0, -1))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, 0, -1))/NUM_MICS
             elif (i >= (delays[2])):
-                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, 1, -1))/4
+                expected_output = sum(mic_signals[j][i-delays[j]] for j in range(3, 1, -1))/NUM_MICS
             else:
-                expected_output = mic_signals[3][i]/4
+                expected_output = mic_signals[3][i]/NUM_MICS
 
         # Assert that the computed output matches the expected result
         computed_output = int(dut.audio_out.value)
@@ -118,7 +119,7 @@ def delay_and_sum_runner():
     sys.path.append(str(proj_path / "sim" / "model"))
     sources = [proj_path / "hdl" / "delay_bram.sv", proj_path / "hdl" / "evt_counter.sv", proj_path / "hdl" / "xilinx_true_dual_port_read_first_2_clock_ram.v"]
     build_test_args = ["-Wall"]
-    # parameters = {'BIT_WIDTH': 24, 'SLOTS':4} #!!!change these to do different versions
+    parameters = {'NUM_MICS': NUM_MICS} 
     sys.path.append(str(proj_path / "sim"))
     runner = get_runner(sim)
     runner.build(
@@ -126,7 +127,7 @@ def delay_and_sum_runner():
         hdl_toplevel="delay_bram",
         always=True,
         build_args=build_test_args,
-        # parameters=parameters,
+        parameters=parameters,
         timescale = ('1ns','1ps'),
         waves=True
     )
