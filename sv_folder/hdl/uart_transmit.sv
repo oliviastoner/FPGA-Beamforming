@@ -1,84 +1,62 @@
-module uart_transmit #( parameter INPUT_CLOCK_FREQ = 100000000, 
-                        parameter BAUD_RATE = 115200 
-                        )
-                        (   input wire clk_in, // clock for mod
-                            input wire rst_in, // reset mod, active high
-                            input wire [7:0] data_byte_in, // byte to transmit, only read when transmission starts
-                            input wire trigger_in, // starts byte transmission, ignore if sending message
-                            output logic busy_out, // hold high while module transmitting
-                            output logic tx_wire_out // serial output signal
+`timescale 1ns / 1ps
+`default_nettype none
+
+module uart_transmit #(
+    parameter INPUT_CLOCK_FREQ = 100_000_000,
+    parameter BAUD_RATE = 9600
+) (
+    input  wire        clk_in,
+    input  wire        rst_in,
+    input  wire  [7:0] data_byte_in,
+    input  wire        trigger_in,
+    output logic       busy_out,
+    output logic       tx_wire_out
 );
-localparam BAUD_BIT_PERIOD = INPUT_CLOCK_FREQ/BAUD_RATE;
-localparam DATA_WIDTH = 10;
-logic [9:0] store_data;
-logic [31:0] cycle_counter;
-logic [4:0] bit_counter;
 
+localparam UART_BIT_PERIOD = int'($floor(INPUT_CLOCK_FREQ / BAUD_RATE));
+localparam UART_RATE_COUNTER_SIZE = $clog2(UART_BIT_PERIOD);
+localparam [UART_RATE_COUNTER_SIZE:0] UART_RATE_COUNTER_LIMIT = UART_BIT_PERIOD - 1;
 
-always_ff @(posedge clk_in)begin
-    // reset things
-    if(rst_in)begin
-        bit_counter <=0;
-        cycle_counter<=0;
-        busy_out<=0;
-        tx_wire_out<=1;
-        store_data <= 10'b0;
+logic [UART_RATE_COUNTER_SIZE:0] uart_rate_count;
+logic [4:0] uart_bit_count;
+logic [8:0] data_to_transmit;
 
-    end
-    else begin
-        // start transmission
-        if(trigger_in && ~busy_out)begin
-            busy_out<=1;
-            cycle_counter <=0;
-            bit_counter<=0;
-            // put transmission data in order of transmission
-            // includes start and stop, relevant bit at 0 index
-            tx_wire_out<= 0;
-            store_data <= {1'b1, data_byte_in};
-        end
-        // doing transmission
-        else if(busy_out)begin
-            // deal with clocking cycles
-           if (cycle_counter == BAUD_BIT_PERIOD-1)begin
-                cycle_counter <= 0;
-            end
-            else begin
-                cycle_counter <= cycle_counter + 1; 
-            end
-            // go through each bit
-            if(bit_counter<DATA_WIDTH-1)begin
-                if(cycle_counter == BAUD_BIT_PERIOD-1)begin
-                    tx_wire_out<= store_data[0];
-                    store_data <= {1'b0,store_data[9:1]};
-                    bit_counter<= bit_counter+1;
-                end
-
-            end
-            // deal with stopping transmission
-            else begin
-                // have to wait for cycle to finish
-                if(cycle_counter == BAUD_BIT_PERIOD-1)begin
-                    // actually finish transmission
-                    busy_out<=0; // no longer busy, transmission done
-                    tx_wire_out<=1; // hold data out 
-                    
-                    // reset bit_counter
-                    bit_counter<=0;
-                end
-
-
-             end
-
-
-        end
-        // transient state
-        else begin
-            // keep wire high, make sure no extra 0s
-            tx_wire_out <=1;
-        end
-
+always_ff @(posedge clk_in) begin
+// Handle rst
+if (rst_in) begin
+    busy_out <= 0;
+    tx_wire_out <= 1;
+    uart_rate_count <= 0;
+    uart_bit_count <= 0;
+    data_to_transmit <= 0;
+end else begin
+    if (!busy_out && trigger_in) begin
+        data_to_transmit <= {1'b1, data_byte_in};   // Stop bit padded
+        busy_out <= 1;
+        tx_wire_out <= 0;                           // TX low = start
+        uart_bit_count <= 0;
+        uart_rate_count <= 0;
     end
 
+    if (busy_out && uart_rate_count == UART_BIT_PERIOD - 1) begin
+        if (uart_bit_count == 9) begin
+            busy_out <= 0;
+            uart_bit_count <= 0;
+        end else begin
+            tx_wire_out <= data_to_transmit[0];
+            data_to_transmit <= data_to_transmit >> 1;
+            uart_bit_count <= uart_bit_count + 1;
+        end
+        uart_rate_count <= 0;
+    end else if (busy_out) begin
+        uart_rate_count <= uart_rate_count + 1;
+    end
+end
 
 end
-endmodule
+
+
+
+endmodule  // uart_transmit
+
+`default_nettype wire

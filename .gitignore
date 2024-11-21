@@ -4,3 +4,5 @@
 /sv_folder/sim/*
 !/sv_folder/sim/*.py
 !/sv_folder/obj/final.bit
+*.out
+*.DS_Store

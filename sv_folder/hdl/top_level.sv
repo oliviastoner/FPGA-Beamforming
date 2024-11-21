@@ -97,7 +97,7 @@ module top_level (
       display_val <= 0;
     end
     else if (audio_valid_out && ~audio_valid_prev && ~btn[1]) begin
-      display_val <= {0, audio_out[0]};
+      display_val <= {8'b0, audio_out[0]};
     end
   end
 
@@ -117,39 +117,49 @@ module top_level (
   // -- Output --
   // TODO: Outputs
   logic                      audio_sample_waiting;
-  logic [7:0]                audio_sample_queue;
 
-  logic [7:0]                uart_data_in;
+  logic [15:0]               uart_data_in;
   logic                      uart_data_valid;
   logic                      uart_busy;
 
   always_ff @(posedge clk_100mhz) begin
     // When a new audio sample recieved it is waiting to be sent
-    if (audio_valid_out && ~audio_valid_prev) begin
-      audio_sample_waiting <= 1;
-      audio_sample_queue <= audio_out[0][23:15];
-    end
-
-    if (!uart_busy && audio_sample_waiting && sw[0]) begin
+    if (sys_rst) begin
       audio_sample_waiting <= 0;
-      uart_data_in <= audio_sample_queue;
-      uart_data_valid <= 1;
-    end else begin
+      uart_data_in <= 0;
       uart_data_valid <= 0;
+    end
+    else if (audio_valid_out && ~audio_valid_prev) begin
+      if (!uart_busy) begin
+        // Sent via uart if not busy
+        uart_data_in <= audio_out[0][23:8];
+        uart_data_valid <= 1;
+        audio_sample_waiting <= 0;
+      end else begin
+        // Flag that sample waiting if busy
+        uart_data_in <= audio_out[0][23:8];
+        audio_sample_waiting <= 1;
+      end
+    end else if (!uart_busy && audio_sample_waiting) begin
+        // Trigger uart when no longer busy and sample waiting
+        audio_sample_waiting <= 0;
+        uart_data_valid <= 1;
+    end else begin
+        audio_sample_waiting <= 0;
+        uart_data_valid <= 0;
     end
   end
 
   // UART Transmitter to FTDI2232
   // Done: instantiate the UART transmitter you just wrote, using the input signals from above.
-  uart_transmit #(.BAUD_RATE(921_600)) uart_transmit_m(
+  uart_byte_transmit #(.NUM_BYTES(2), .BAUD_RATE(921_600)) uart_transmit_m(
   .clk_in(clk_100mhz),
   .rst_in(sys_rst),
-  .data_byte_in(uart_data_in),
+  .data_in(uart_data_in),
   .trigger_in(uart_data_valid),
   .busy_out(uart_busy),
   .tx_wire_out(uart_txd)
   );
-
 
   // assign led[0] = audio_valid_out;
 
