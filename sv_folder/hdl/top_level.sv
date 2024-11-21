@@ -78,9 +78,9 @@ module top_level (
   logic audio_valid_out;
 
   tdm_receive #(.SLOTS(2)) tdm(
-    .sck(data_clk),
-    .ws(mic_trigger),
-    .sd(tdm_data_in),
+    .sck_in(data_clk),
+    .ws_in(mic_trigger),
+    .sd_in(tdm_data_in),
     .rst_in(sys_rst),
     .audio_out(audio_out),
     .audio_valid_out(audio_valid_out)
