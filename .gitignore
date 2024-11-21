@@ -1,0 +1,6 @@
+/sv_folder/obj/*
+/sv_folder/_history/*
+/sv_folder/sim/__pycache__/*
+/sv_folder/sim/*
+!/sv_folder/sim/*.py
+!/sv_folder/obj/final.bit
