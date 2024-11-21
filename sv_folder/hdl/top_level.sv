@@ -28,7 +28,7 @@ module top_level (
 
   // -- CLOCKING --
   // Create a rough clock -- should be replaced by actual clock later
-
+  localparam MICS = 2;
   localparam CYCLES_PER_DATA_CLK = 50;
   localparam CYCLES_PER_HALF_DATA_CLK = CYCLES_PER_DATA_CLK / 2;
   localparam DATA_CLK_CYCLES_PER_MIC_CLK = 64; // Audio will be clocked at 31.25 kHz
@@ -73,20 +73,16 @@ module top_level (
 
   // -- TDM INPUT --
   // TODO: TDM Microphone Input
-  logic [23:0] audio_out1;
-  logic [23:0] audio_out2;
+  logic [23:0] audio_out[MICS];
   logic audio_valid_prev;
   logic audio_valid_out;
 
   tdm_receive #(.SLOTS(2)) tdm(
-    .sck_in(data_clk),
-    .ws_in(mic_trigger),
-    .sd_in(tdm_data_in),
+    .sck(data_clk),
+    .ws(mic_trigger),
+    .sd(tdm_data_in),
     .rst_in(sys_rst),
-    .audio_out1(audio_out1),
-    .audio_out2(audio_out2),
-    .audio_out3(),  // Leave mics 3 and 4 disconnected for now
-    .audio_out4(),
+    .audio_out(audio_out),
     .audio_valid_out(audio_valid_out)
   );
 
@@ -101,7 +97,7 @@ module top_level (
       display_val <= 0;
     end
     else if (audio_valid_out && ~audio_valid_prev && ~btn[1]) begin
-      display_val <= {0, audio_out1};
+      display_val <= {0, audio_out[0]};
     end
   end
 
@@ -131,7 +127,7 @@ module top_level (
     // When a new audio sample recieved it is waiting to be sent
     if (audio_valid_out && ~audio_valid_prev) begin
       audio_sample_waiting <= 1;
-      audio_sample_queue <= audio_out1[23:15];
+      audio_sample_queue <= audio_out[0][23:15];
     end
 
     if (!uart_busy && audio_sample_waiting && sw[0]) begin
