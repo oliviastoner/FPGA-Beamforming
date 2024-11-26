@@ -38,12 +38,15 @@ module top_level (
   logic [31:0] mic_trigger_count;
   logic [31:0] clk_elapsed;
   logic data_clk;
+  logic data_clk_prev;
+  logic data_clk_edge;
   logic mic_trigger;
 
   always_ff @(posedge clk_100mhz) begin
     if (sys_rst) begin
       data_clk_count <= 0;
       data_clk <= 0;
+      data_clk_prev <= 0;
     end else begin
       if (data_clk_count == CYCLES_PER_HALF_DATA_CLK - 1) begin
         data_clk_count <= 0;
@@ -51,8 +54,12 @@ module top_level (
       end else begin
         data_clk_count <= data_clk_count + 1;
       end
+
+      data_clk_prev <= data_clk;
     end
   end
+
+  assign data_clk_edge = data_clk && ~data_clk_prev;
 
   counter_neg counter_mic_trigger (
       .clk_in(data_clk),
@@ -121,7 +128,7 @@ module top_level (
       display_val <= 0;
     end
     // For Testing -- Display Audio Sample when sw[13] High
-    else if (sw[13] && audio_valid_out && ~audio_valid_prev && ~btn[1]) begin
+    else if (sw[13] && dss_valid_out && data_clk_edge && ~btn[1]) begin
       display_val <= {8'b0, dss_audio_out};
     end
     else if (~sw[13]) display_val <= {20'b0, ascii_rep};
@@ -195,7 +202,7 @@ module top_level (
       uart_data_valid <= 0;
       is_even_sample <= 0;
     end
-    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && ~audio_valid_prev && use_dual_uart)) begin
+    else if ((dss_valid_out && data_clk_edge && ~use_dual_uart) || (audio_valid_out && ~audio_valid_prev && use_dual_uart)) begin
       if (!uart_busy) begin
         // Sent via uart if not busy
         uart_data_valid <= 1;

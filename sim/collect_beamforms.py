@@ -68,10 +68,20 @@ def collect_sweep(inputs):
 
     plt.tight_layout()
     plt.show()
-        
 
 # Example usage
 if __name__ == "__main__":
     while True:
         sweeps = int(input("Enter the number of sweeps to collect: "))
         collect_sweep(sweeps)
+    # wav_96 = sf.read("beam_ang_96.wav")
+    # wav_64 = sf.read("beam_ang_64.wav")
+    # wav_32 = sf.read("beam_ang_32.wav")
+
+    # librosa.display.waveshow(wav_96[0], sr=wav_96[1], color='red')
+    # librosa.display.waveshow(wav_64[0], sr=wav_64[1], color='blue')
+    # librosa.display.waveshow(wav_32[0], sr=wav_32[1], color='green')
+    # plt.show()
+    # # print(f"Ang 96 avg val -- {sum(map(abs, wav_96[0])) / len(wav_96[0])}")
+    # # print(f"Ang 64 avg val -- {sum(map(abs, wav_64[0])) / len(wav_64[0])}")
+    # # print(f"Ang 32 avg val -- {sum(map(abs, wav_32[0])) / len(wav_32[0])}")

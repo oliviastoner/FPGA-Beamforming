@@ -20,7 +20,7 @@ module delay_bram
     logic signed [BITS_AUDIO-1:0] audio_out_mic1, audio_out_mic2, audio_out_mic3, audio_out_mic4; // Output audio from the read BRAM slot
     logic signed [BITS_AUDIO+1:0] summed_audio; // 18-bit audio: all audio summed together
     logic signed [BITS_AUDIO-1:0] shifted_audio; // divide audio by 4: shift right by 2 to preserve 16-bit audio transmission
-    logic valid_out_r1, valid_out_r2, valid_out_r3, valid_out_r4, valid_out_r5 = 1'b0; // registers to pipeline the valid_in signal to account for 5-cycle delay from input audio to output audio
+    logic valid_out_r1, valid_out_r2, valid_out_r3 = 1'b0; // registers to pipeline the valid_in signal to account for 5-cycle delay from input audio to output audio
 
     logic [10:0] mic_reference_addr;
 
@@ -53,7 +53,7 @@ module delay_bram
     ) mic_1_delay (
     // PORT A
     .addra(mic_1_delay_addr),
-    .dina(0), // we only use port A for reads!
+    .dina(24'b0), // we only use port A for reads!
     .clka(clk_in),
     .wea(1'b0), // read only
     .ena(1'b1),
@@ -79,7 +79,7 @@ module delay_bram
     ) mic_2_delay (
     // PORT A
     .addra(mic_2_delay_addr),
-    .dina(0), // we only use port A for reads!
+    .dina(24'b0), // we only use port A for reads!
     .clka(clk_in),
     .wea(1'b0), // read only
     .ena(1'b1),
@@ -105,7 +105,7 @@ module delay_bram
     ) mic_3_delay (
     // PORT A
     .addra(mic_3_delay_addr),
-    .dina(0), // we only use port A for reads!
+    .dina(24'b0), // we only use port A for reads!
     .clka(clk_in),
     .wea(1'b0), // read only
     .ena(1'b1),
@@ -131,7 +131,7 @@ module delay_bram
     ) mic_4_delay (
     // PORT A
     .addra(mic_4_delay_addr),
-    .dina(0), // we only use port A for reads!
+    .dina(24'b0), // we only use port A for reads!
     .clka(clk_in),
     .wea(1'b0), // read only
     .ena(1'b1),
@@ -158,26 +158,22 @@ module delay_bram
             valid_out_r1 <= 0;
             valid_out_r2 <= 0;
             valid_out_r3 <= 0;
-            valid_out_r4 <= 0;
-            valid_out_r5 <= 0;
         end else begin
             if (mic_1_delay_addr == 0) orig_delay_done[0] <= 1'b1;
             if (mic_2_delay_addr == 0) orig_delay_done[1] <= 1'b1;
             if (mic_3_delay_addr == 0) orig_delay_done[2] <= 1'b1;
             if (mic_4_delay_addr == 0) orig_delay_done[3] <= 1'b1;
-        end
 
-        // pipeline valid_in signals to valid_out; account for 5-cycle input --> output delay
-        // 3 cycles delay for BRAM read, 1 for sum, and 1 for shift
-        summed_audio <= ($signed(audio_out_mic4) + $signed(audio_out_mic3) + $signed(audio_out_mic2) + $signed(audio_out_mic1));
-        audio_out <= (summed_audio >>> $clog2(NUM_MICS));
-        valid_out_r1 <= valid_in;
-        valid_out_r2 <= valid_out_r1;
-        valid_out_r3 <= valid_out_r2;
-        valid_out_r4 <= valid_out_r3;
-        valid_out_r5 <= valid_out_r4;
+            // pipeline valid_in signals to valid_out; account for 5-cycle input --> output delay
+            // 3 cycles delay for BRAM read, 1 for sum, and 1 for shift
+            summed_audio <= ($signed(audio_out_mic4) + $signed(audio_out_mic3) + $signed(audio_out_mic2) + $signed(audio_out_mic1));
+            audio_out <= (summed_audio >>> $clog2(NUM_MICS));
+            valid_out_r1 <= orig_delay_done[NUM_MICS-1:0] == {NUM_MICS{1'b1}};
+            valid_out_r2 <= valid_out_r1;
+            valid_out_r3 <= valid_out_r2;
+        end
     end
 
-    assign valid_out = valid_out_r5 && orig_delay_done == 4'b1111;
+    assign valid_out = valid_out_r3;
 
 endmodule
