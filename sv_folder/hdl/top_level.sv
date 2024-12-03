@@ -128,7 +128,9 @@ module top_level (
       display_val <= 0;
     end
     // For Testing -- Display Audio Sample when sw[13] High
-    else if (sw[13] && dss_valid_out && data_clk_edge && ~btn[1]) begin
+    else if (sw[12] && audio_valid_out && ~audio_valid_prev) begin
+      display_val <= {8'b0, audio_out[0]};
+    end else if (sw[13] && dss_valid_out && ~btn[1]) begin
       display_val <= {8'b0, dss_audio_out};
     end
     else if (~sw[13]) display_val <= {20'b0, ascii_rep};
@@ -150,9 +152,9 @@ module top_level (
   logic dss_valid_out;
 
   delay_bram delay_sum_shift (
-    .clk_in(data_clk),
+    .clk_in(clk_100mhz),
     .rst_in(sys_rst),
-    .valid_in(audio_valid_out),
+    .valid_in(audio_valid_out && ~audio_valid_prev),
     .delay_1(delay_1),
     .delay_2(delay_2),
     .delay_3(delay_3),
@@ -202,7 +204,7 @@ module top_level (
       uart_data_valid <= 0;
       is_even_sample <= 0;
     end
-    else if ((dss_valid_out && data_clk_edge && ~use_dual_uart) || (audio_valid_out && ~audio_valid_prev && use_dual_uart)) begin
+    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && ~audio_valid_prev && use_dual_uart)) begin
       if (!uart_busy) begin
         // Sent via uart if not busy
         uart_data_valid <= 1;

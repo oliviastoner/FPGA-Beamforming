@@ -20,7 +20,9 @@ module delay_bram
     logic signed [BITS_AUDIO-1:0] audio_out_mic1, audio_out_mic2, audio_out_mic3, audio_out_mic4; // Output audio from the read BRAM slot
     logic signed [BITS_AUDIO+1:0] summed_audio; // 18-bit audio: all audio summed together
     logic signed [BITS_AUDIO-1:0] shifted_audio; // divide audio by 4: shift right by 2 to preserve 16-bit audio transmission
-    logic valid_out_r1, valid_out_r2, valid_out_r3 = 1'b0; // registers to pipeline the valid_in signal to account for 5-cycle delay from input audio to output audio
+    logic valid_out_r1, valid_out_r2, valid_out_r3, valid_out_r4, valid_out_r5 = 1'b0; // registers to pipeline the valid_in signal to account for 5-cycle delay from input audio to output audio
+    logic [7:0] delay_1_prev, delay_2_prev, delay_3_prev, delay_4_prev;
+    logic delay_change;
 
     logic [10:0] mic_reference_addr;
 
@@ -31,9 +33,11 @@ module delay_bram
 
     logic [3:0] orig_delay_done;
 
+    assign delay_change = delay_1 != delay_1_prev || delay_2 != delay_2_prev || delay_3 != delay_3_prev || delay_4 != delay_4_prev;
+
     evt_counter count_cycles (
         .clk_in(clk_in),
-        .rst_in(rst_in),
+        .rst_in(rst_in || delay_change),
         .evt_in(valid_in),
         .count_out(mic_reference_addr)
     );
@@ -64,7 +68,7 @@ module delay_bram
     .addrb(mic_reference_addr),
     .dinb(audio_in_1),
     .clkb(clk_in),
-    .web(1'b1), // write always
+    .web(valid_in),
     .enb(1'b1),
     .rstb(rst_in),
     .regceb(1'b1),
@@ -90,7 +94,7 @@ module delay_bram
     .addrb(mic_reference_addr),
     .dinb(audio_in_2),
     .clkb(clk_in),
-    .web(1'b1), // write always
+    .web(valid_in),
     .enb(1'b1),
     .rstb(rst_in),
     .regceb(1'b1),
@@ -116,7 +120,7 @@ module delay_bram
     .addrb(mic_reference_addr),
     .dinb(audio_in_3),
     .clkb(clk_in),
-    .web(1'b1), // write always
+    .web(valid_in),
     .enb(1'b1),
     .rstb(rst_in),
     .regceb(1'b1),
@@ -142,7 +146,7 @@ module delay_bram
     .addrb(mic_reference_addr),
     .dinb(audio_in_4),
     .clkb(clk_in),
-    .web(1'b1), // write always
+    .web(valid_in), // write always
     .enb(1'b1),
     .rstb(rst_in),
     .regceb(1'b1),
@@ -158,6 +162,10 @@ module delay_bram
             valid_out_r1 <= 0;
             valid_out_r2 <= 0;
             valid_out_r3 <= 0;
+        end if (delay_change) begin
+            summed_audio <= 0;
+            orig_delay_done <= 0;
+            valid_out_r1 <= 0;
         end else begin
             if (mic_1_delay_addr == 0) orig_delay_done[0] <= 1'b1;
             if (mic_2_delay_addr == 0) orig_delay_done[1] <= 1'b1;
@@ -168,12 +176,19 @@ module delay_bram
             // 3 cycles delay for BRAM read, 1 for sum, and 1 for shift
             summed_audio <= ($signed(audio_out_mic4) + $signed(audio_out_mic3) + $signed(audio_out_mic2) + $signed(audio_out_mic1));
             audio_out <= (summed_audio >>> $clog2(NUM_MICS));
-            valid_out_r1 <= orig_delay_done[NUM_MICS-1:0] == {NUM_MICS{1'b1}};
+            valid_out_r1 <= valid_in;
             valid_out_r2 <= valid_out_r1;
-            valid_out_r3 <= valid_out_r2;
+            valid_out_r3 <= valid_out_r2 && orig_delay_done[NUM_MICS-1:0] == {NUM_MICS{1'b1}};
+            valid_out_r4 <= valid_out_r3;
+            valid_out_r5 <= valid_out_r4;
         end
+
+        delay_1_prev <= delay_1;
+        delay_2_prev <= delay_2;
+        delay_3_prev <= delay_3;
+        delay_4_prev <= delay_4;
     end
 
-    assign valid_out = valid_out_r3;
+    assign valid_out = valid_out_r5;
 
 endmodule

@@ -32,7 +32,8 @@ def create_expected_beamformer(num_mics, num_bits, num_samples, delay_per_mic):
 
     return audio_samples, audio_shifted, summed_output, expected_output
 
-async def delay_and_sum_test_builder(dut, num_mics, num_bits, num_samples, delay_per_mic):
+
+async def setup_test(dut, num_mics, delay_per_mic):
     cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
     
     # Setup initial inputs
@@ -54,6 +55,8 @@ async def delay_and_sum_test_builder(dut, num_mics, num_bits, num_samples, delay
     dut.rst_in.value = 0
     await ClockCycles(dut.clk_in, 1)
 
+
+async def delay_and_sum_test_builder(dut, num_mics, num_bits, num_samples, delay_per_mic):
     audio_samples, audio_shifted, summed_output, expected_output = create_expected_beamformer(num_mics, num_bits, num_samples, delay_per_mic)
 
     # Apply test cases with random values
@@ -85,23 +88,47 @@ async def delay_and_sum_test_builder(dut, num_mics, num_bits, num_samples, delay
         else:
             assert dut.valid_out.value == 0
 
-        await ClockCycles(dut.clk_in,1)
+        await ClockCycles(dut.clk_in, 1)
+        # Simulate some clk cycles between valid inputs
+        dut.valid_in.value = 0
+        await ClockCycles(dut.clk_in, 4)
 
 @cocotb.test
 async def dss_small_test(dut):
+    await setup_test(dut, NUM_MICS, 2)
     await delay_and_sum_test_builder(dut, NUM_MICS, 8, 50, 2)
 
 @cocotb.test
+async def dss_test_delay_changes(dut):
+    delay_per_mic = 2
+
+    await setup_test(dut, NUM_MICS, delay_per_mic)
+    await delay_and_sum_test_builder(dut, NUM_MICS, 8, 25, delay_per_mic)
+
+    delay_per_mic = 4
+
+    dut.delay_1.value = (NUM_MICS - 1) * abs(delay_per_mic) if delay_per_mic < 0 else 0
+    dut.delay_2.value = (NUM_MICS - 2) * abs(delay_per_mic) if delay_per_mic < 0 else delay_per_mic
+    dut.delay_3.value = (NUM_MICS - 3) * abs(delay_per_mic) if delay_per_mic < 0 else delay_per_mic * 2
+    dut.delay_4.value = (NUM_MICS - 4) * abs(delay_per_mic) if delay_per_mic < 0 else delay_per_mic * 3
+
+    await delay_and_sum_test_builder(dut, NUM_MICS, 8, 25, delay_per_mic)
+
+@cocotb.test
 async def dss_small_test_2(dut):
+    await setup_test(dut, NUM_MICS, 4)
     await delay_and_sum_test_builder(dut, NUM_MICS, 8, 50, 4)
 
 @cocotb.test
 async def dss_small_test_neg_delay(dut):
+    await setup_test(dut, NUM_MICS, -2)
     await delay_and_sum_test_builder(dut, NUM_MICS, 8, 50, -2)
 
 @cocotb.test
 async def dss_real_test(dut):
+    await setup_test(dut, NUM_MICS, 2)
     await delay_and_sum_test_builder(dut, NUM_MICS, 24, 200, 6)
+
 
 def delay_and_sum_runner():
     """Simulate the tdm receiver using the Python runner."""

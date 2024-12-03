@@ -14,7 +14,7 @@ import soundfile as sf
 SERIAL_PORT_NAME = "/dev/cu.usbserial-88742923021D1"
 BAUD_RATE = 921600
 SAMPLE_RATE = 31250 # capturing samples at 8 kHz; will change
-AUDIO_LENGTH = 2 # set to record 6 seconds of audio
+AUDIO_LENGTH = 4 # set to record 6 seconds of audio
 BYTES = 2
 
 ser = serial.Serial(SERIAL_PORT_NAME,BAUD_RATE)

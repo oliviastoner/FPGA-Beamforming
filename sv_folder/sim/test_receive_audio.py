@@ -14,7 +14,7 @@ import soundfile as sf
 SERIAL_PORT_NAME = "/dev/cu.usbserial-88742923021D1"
 BAUD_RATE = 921600
 SAMPLE_RATE = 31250 # capturing samples at 8 kHz; will change
-AUDIO_LENGTH = 6 # set to record 6 seconds of audio
+AUDIO_LENGTH = 3 # set to record 6 seconds of audio
 BYTES = 2
 
 MODE = 1       # Mode 0 (normal sample rate and byte length)
@@ -132,33 +132,124 @@ if __name__ == "__main__":
         mic_1_int = [0]
 
     # Calculate beamforming delays
-    delays = beamforming_delay(90, 27, 2)
+    delays_180 = beamforming_delay(180, 27, 2)
+    delays_135 = beamforming_delay(135, 27, 2)
+    delays_90 = beamforming_delay(90, 27, 2)
+    delays_45 = beamforming_delay(45, 27, 2)
+    delays_00 = beamforming_delay(00, 27, 2)
 
     # Perform delay-and-sum beamforming
     normalized_mic_0 = np.array(mic_0_int, dtype=np.int16).astype(np.float32) / 32768.0
     if MODE == 1:
         normalized_mic_1 = np.array(mic_1_int, dtype=np.int16).astype(np.float32) / 32768.0
-        beamformed_signal, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays)
+        beamformed_signal_180, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays_180)
+        beamformed_signal_135, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays_135)
+        beamformed_signal_90, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays_90)
+        beamformed_signal_45, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays_45)
+        beamformed_signal_00, delayed_outputs = delay_and_sum([normalized_mic_0, normalized_mic_1], delays_00)
 
         # Save the output beamformed signal
-        sf.write('beamformed_output.wav', beamformed_signal, int(EFF_SAMPLE_RATE))
+        sf.write('beamformed_output_180.wav', beamformed_signal_180, int(EFF_SAMPLE_RATE))
+        sf.write('beamformed_output_135.wav', beamformed_signal_135, int(EFF_SAMPLE_RATE))
+        sf.write('beamformed_output_90.wav', beamformed_signal_90, int(EFF_SAMPLE_RATE))
+        sf.write('beamformed_output_45.wav', beamformed_signal_45, int(EFF_SAMPLE_RATE))
+        sf.write('beamformed_output_00.wav', beamformed_signal_00, int(EFF_SAMPLE_RATE))
 
     # Optionally, display the waveforms of the input and output
     # plt.figure(figsize=(10, 6))
-    plt.subplots(3, 1, sharey=True)
+    # plt.figure()
+    plt.subplots(4, 1, sharey=True)
 
-    plt.subplot(3, 1, 1)
+    plt.subplot(4, 1, 1)
     librosa.display.waveshow(normalized_mic_0, sr=EFF_SAMPLE_RATE, label='Mic 1', color='#ADD8E6')
     plt.legend()
 
     if MODE == 1:
-        plt.subplot(3, 1, 2)
+        plt.subplot(4, 1, 2)
         librosa.display.waveshow(normalized_mic_1, sr=EFF_SAMPLE_RATE, label='Mic 2', color='#87CEEB')
         plt.legend()
 
-        plt.subplot(3, 1, 3)
-        librosa.display.waveshow(beamformed_signal, sr=EFF_SAMPLE_RATE, label='Beamformed Output', color='#00000B')
-        plt.legend()
+    #     plt.subplot(4, 1, 1)
+    #     librosa.display.waveshow(beamformed_signal_90, sr=EFF_SAMPLE_RATE, label='Beamformed Output 90', color='#00000B')
+    #     plt.legend()
+
+    #     plt.subplot(4, 1, 2)
+    #     librosa.display.waveshow(beamformed_signal_60, sr=EFF_SAMPLE_RATE, label='Beamformed Output 60', color='#00000B')
+    #     plt.legend()
+
+    #     plt.subplot(4, 1, 3)
+    #     librosa.display.waveshow(beamformed_signal_30, sr=EFF_SAMPLE_RATE, label='Beamformed Output 30', color='#00000B')
+    #     plt.legend()
+
+    #     plt.subplot(4, 1, 4)
+    #     librosa.display.waveshow(beamformed_signal_00, sr=EFF_SAMPLE_RATE, label='Beamformed Output 00', color='#00000B')
+    #     plt.legend()
 
     plt.tight_layout()
     plt.show()
+    
+    # # FFT for beamformed audio 90 deg
+    # n = len(beamformed_signal_00)
+    # frequencies_00 = np.fft.rfftfreq(n, d=1/EFF_SAMPLE_RATE)  # Frequency range
+    # fft_magnitude_00 = np.abs(np.fft.rfft(beamformed_signal_00))    # FFT magnitudes
+
+    # n = len(beamformed_signal_45)
+    # frequencies_45 = np.fft.rfftfreq(n, d=1/EFF_SAMPLE_RATE)  # Frequency range
+    # fft_magnitude_45 = np.abs(np.fft.rfft(beamformed_signal_45))    # FFT magnitudes
+
+    # n = len(beamformed_signal_90)
+    # frequencies_90 = np.fft.rfftfreq(n, d=1/EFF_SAMPLE_RATE)  # Frequency range
+    # fft_magnitude_90 = np.abs(np.fft.rfft(beamformed_signal_90))    # FFT magnitudes
+
+    # n = len(beamformed_signal_135)
+    # frequencies_135 = np.fft.rfftfreq(n, d=1/EFF_SAMPLE_RATE)  # Frequency range
+    # fft_magnitude_135 = np.abs(np.fft.rfft(beamformed_signal_135))    # FFT magnitudes
+
+    # n = len(beamformed_signal_180)
+    # frequencies_180 = np.fft.rfftfreq(n, d=1/EFF_SAMPLE_RATE)  # Frequency range
+    # fft_magnitude_180 = np.abs(np.fft.rfft(beamformed_signal_180))    # FFT magnitudes
+
+    # plt.subplots(3, 2)
+    
+    # plt.subplot(3, 2, 1)
+    # plt.plot(frequencies_00, fft_magnitude_00)
+    # plt.title("Frequency Spectrum 00")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.ylabel("Amplitude")
+    # plt.grid()
+    # plt.legend()
+
+    # plt.subplot(3, 2, 2)
+    # plt.plot(frequencies_45, fft_magnitude_45)
+    # plt.title("Frequency Spectrum 45")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.ylabel("Amplitude")
+    # plt.grid()
+    # plt.legend()
+
+    # plt.subplot(3, 2, 3)
+    # plt.plot(frequencies_90, fft_magnitude_90)
+    # plt.title("Frequency Spectrum 90")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.ylabel("Amplitude")
+    # plt.grid()
+    # plt.legend()
+
+    # plt.subplot(3, 2, 4)
+    # plt.plot(frequencies_135, fft_magnitude_135)
+    # plt.title("Frequency Spectrum 135")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.ylabel("Amplitude")
+    # plt.grid()
+    # plt.legend()
+
+    # plt.subplot(3, 2, 5)
+    # plt.plot(frequencies_180, fft_magnitude_180)
+    # plt.title("Frequency Spectrum 180")
+    # plt.xlabel("Frequency (Hz)")
+    # plt.ylabel("Amplitude")
+    # plt.grid()
+    # plt.legend()
+
+    # plt.show()
+
