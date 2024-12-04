@@ -71,27 +71,33 @@ async def delay_and_sum_test_builder(dut, num_mics, num_bits, num_samples, delay
         
         # Check that value propagates delays as expected (3 cycles till bram output)
         # 1 because write before read, 2 for normal bram
-        if i > 3:
-            assert dut.audio_out_mic1.value == audio_shifted[0][i - 4] & 0x00FFFFFF 
-            assert dut.audio_out_mic2.value == audio_shifted[1][i - 4] & 0x00FFFFFF 
-            assert dut.audio_out_mic3.value == (audio_shifted[2][i - 4] & 0x00FFFFFF if len(audio_samples) >= 3 else 0)
-            assert dut.audio_out_mic4.value == (audio_shifted[3][i - 4] & 0x00FFFFFF if len(audio_samples) >= 4 else 0)
+        await ClockCycles(dut.clk_in, 1)
+        dut.valid_in.value = 0
+        await ClockCycles(dut.clk_in, 3, rising=False)
+        assert dut.audio_out_mic1.value == audio_shifted[0][i] & 0x00FFFFFF 
+        if i >= abs(delay_per_mic):
+            assert dut.audio_out_mic2.value == audio_shifted[1][i] & 0x00FFFFFF 
+        if i >= 2*abs(delay_per_mic):
+            assert dut.audio_out_mic3.value == (audio_shifted[2][i] & 0x00FFFFFF if len(audio_samples) >= 3 else 0)
+        if i >= 3*abs(delay_per_mic):
+            assert dut.audio_out_mic4.value == (audio_shifted[3][i] & 0x00FFFFFF if len(audio_samples) >= 4 else 0)
         # Following cycle summed_audio should be correct
-        if i > 4:
-            assert dut.summed_audio.value == summed_output[i - 5] & 0x03FFFFFF # (25 bits)
+        await ClockCycles(dut.clk_in, 1, rising=False)
+        if i >= 3*abs(delay_per_mic):
+            assert dut.summed_audio.value == summed_output[i] & 0x03FFFFFF # (25 bits)
         # Check that the output matches expected value
-        if i > 5:
-            assert dut.audio_out.value == expected_output[i - 6] & 0x00FFFFFF
+        await ClockCycles(dut.clk_in, 1, rising=False)
+        if i >= 3*abs(delay_per_mic):
+            assert dut.audio_out.value == expected_output[i] & 0x00FFFFFF
         # Check that the valid_out goes high after all signals have delayed
-        if i > (num_mics-1)*abs(delay_per_mic) + 5:
+        if i >= (num_mics-1)*abs(delay_per_mic):
             assert dut.valid_out.value == 1
         else:
             assert dut.valid_out.value == 0
 
-        await ClockCycles(dut.clk_in, 1)
+        await ClockCycles(dut.clk_in, 1, rising=False)
+        assert dut.valid_out.value == 0
         # Simulate some clk cycles between valid inputs
-        dut.valid_in.value = 0
-        await ClockCycles(dut.clk_in, 4)
 
 @cocotb.test
 async def dss_small_test(dut):
@@ -126,7 +132,7 @@ async def dss_small_test_neg_delay(dut):
 
 @cocotb.test
 async def dss_real_test(dut):
-    await setup_test(dut, NUM_MICS, 2)
+    await setup_test(dut, NUM_MICS, 6)
     await delay_and_sum_test_builder(dut, NUM_MICS, 24, 200, 6)
 
 

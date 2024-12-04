@@ -34,18 +34,52 @@ def collect_audio(mic_name):
     Collects audio data for specified length and stores in arrays for mic_0 and mic_1
     """
     print(f"Recording {AUDIO_LENGTH} seconds of audio:")
-    mic_data = []
+    uart_data = []
     for i in range(int(SAMPLE_RATE*AUDIO_LENGTH)):
-        val = ser.read(BYTES) # read 2 bytes of sample; 16-bit audio data
+        for _ in range(BYTES):
+            val = ser.read(1) # read 2 bytes of sample; 16-bit audio data
+            uart_data.append(val)
 
         if ((i+1)%SAMPLE_RATE==0):
             print(f"{(i+1)/SAMPLE_RATE} seconds complete")
+
+    audio_data = []
+    while uart_data:
+        audio_sample = 0
+        audio_valid = False
+        for i in range(2):
+            data = None
+            alignment_bit = None
+            while alignment_bit != i and uart_data:
+                if alignment_bit is not None:
+                    print("Alignment missed")
+
+                uart_byte = uart_data.pop(0)
+                data = 0b1111111 & ord(uart_byte)
+                alignment_bit = ord(uart_byte) >> 7
+            
+            if data is None:
+                print("No data")
+                audio_valid = False
+                break
+            elif i == 0:
+                audio_sample += data
+            elif i == 1:
+                audio_sample += data << 7
+                audio_valid = True
         
-        mic_data.append(val)
+        if audio_valid:
+            if audio_sample & (1 << 13):
+                audio_sample -= 1 << 14
 
-    save_bytes_as_wave(mic_name, mic_data)
+            audio_data.append(audio_sample << 2) # shift data to 16 bit
+        else:
+            continue
 
-    return mic_data
+    if mic_name is not None:
+        save_bytes_as_wave(mic_name, [sample.to_bytes(2, 'little', signed=True) for sample in audio_data])
+              
+    return audio_data
 
 
 def collect_sweep(inputs):
@@ -60,8 +94,7 @@ def collect_sweep(inputs):
     count = 1
     for angle, sweep_data in all_sweeps.items():
         plt.subplot(inputs, 1, count)
-        int_sweep_data = [int.from_bytes(sample, 'little', signed=True) for sample in sweep_data]
-        normalized_sweep = np.array(int_sweep_data, dtype=np.int16).astype(np.float32) / 32768.0
+        normalized_sweep = np.array(sweep_data, dtype=np.int16).astype(np.float32) / 32768.0
         librosa.display.waveshow(normalized_sweep, sr=SAMPLE_RATE, label=f'{angle} deg', color='#00000B')
         plt.legend()
         count+=1
@@ -74,6 +107,7 @@ if __name__ == "__main__":
     while True:
         sweeps = int(input("Enter the number of sweeps to collect: "))
         collect_sweep(sweeps)
+        # collect_audio(None)
     # wav_96 = sf.read("beam_ang_96.wav")
     # wav_64 = sf.read("beam_ang_64.wav")
     # wav_32 = sf.read("beam_ang_32.wav")

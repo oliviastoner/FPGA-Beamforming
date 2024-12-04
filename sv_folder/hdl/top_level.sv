@@ -15,7 +15,9 @@ module top_level (
     output logic [3:0] ss0_an,  //anode control for upper four digits of seven-seg display
     output logic [3:0] ss1_an,  //anode control for lower four digits of seven-seg display
     output logic [6:0] ss0_c,  //cathode controls for the segments of upper four digits
-    output logic [6:0] ss1_c  //cathode controls for the segments of lower four digits
+    output logic [6:0] ss1_c, //cathode controls for the segments of lower four digits
+    output logic spkl,
+    output logic spkr
 );
 
   //shut up those rgb LEDs for now (active high):
@@ -81,7 +83,6 @@ module top_level (
   // -- TDM INPUT --
   // TDM Microphone Input
   logic [23:0] audio_out[MICS];
-  logic audio_valid_prev;
   logic audio_valid_out;
 
   tdm_receive #(.SLOTS(2)) tdm(
@@ -122,13 +123,11 @@ module top_level (
   logic [31:0] display_val;
 
   always_ff @(posedge clk_100mhz) begin
-    audio_valid_prev <= audio_valid_out;
-
     if (sys_rst) begin
       display_val <= 0;
     end
     // For Testing -- Display Audio Sample when sw[13] High
-    else if (sw[12] && audio_valid_out && ~audio_valid_prev) begin
+    else if (sw[12] && audio_valid_out) begin
       display_val <= {8'b0, audio_out[0]};
     end else if (sw[13] && dss_valid_out && ~btn[1]) begin
       display_val <= {8'b0, dss_audio_out};
@@ -154,7 +153,7 @@ module top_level (
   delay_bram delay_sum_shift (
     .clk_in(clk_100mhz),
     .rst_in(sys_rst),
-    .valid_in(audio_valid_out && ~audio_valid_prev),
+    .valid_in(audio_valid_out),
     .delay_1(delay_1),
     .delay_2(delay_2),
     .delay_3(delay_3),
@@ -204,7 +203,7 @@ module top_level (
       uart_data_valid <= 0;
       is_even_sample <= 0;
     end
-    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && ~audio_valid_prev && use_dual_uart)) begin
+    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && use_dual_uart)) begin
       if (!uart_busy) begin
         // Sent via uart if not busy
         uart_data_valid <= 1;
@@ -215,7 +214,7 @@ module top_level (
       end
 
       // Update uart data inputs with the new samples
-      uart_single_data_in <= dss_audio_out[23:8];
+      uart_single_data_in <= dss_audio_out[23:10];
       uart_dual_data_in <= {audio_out[1][23:8], audio_out[0][23:8]};
       // Toggle is_even_sample on each new sample
       is_even_sample <= ~is_even_sample;
@@ -240,14 +239,28 @@ module top_level (
   .tx_wire_out(uart_single_txd)
   );
 
-  uart_byte_transmit #(.NUM_BYTES(4), .BAUD_RATE(921_600)) uart_transmit_dual_m (
-  .clk_in(clk_100mhz),
-  .rst_in(sys_rst),
-  .data_in(uart_dual_data_in),
-  .trigger_in(uart_data_valid && use_dual_uart && is_even_sample && enable_uart),
-  .busy_out(uart_dual_busy),
-  .tx_wire_out(uart_dual_txd)
-  );
+  // uart_byte_transmit #(.NUM_BYTES(4), .BAUD_RATE(921_600)) uart_transmit_dual_m (
+  // .clk_in(clk_100mhz),
+  // .rst_in(sys_rst),
+  // .data_in(uart_dual_data_in),
+  // .trigger_in(uart_data_valid && use_dual_uart && is_even_sample && enable_uart),
+  // .busy_out(uart_dual_busy),
+  // .tx_wire_out(uart_dual_txd)
+  // );
+
+  // logic spk_out;
+
+  // pdm #(.NBITS(24)) spk_pdm  (
+  //   .clk(clk_100mhz),
+  //   .rst(sys_rst),
+  //   .din(line_out_audio),
+  //   .dout(spk_out),
+  //   .error()
+  //  );
+
+  //  // set both output channels equal to the same PWM signal!
+  //  assign spkl = spk_out;
+  //  assign spkr = spk_out;
 
 endmodule  // top_level
 

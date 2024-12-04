@@ -25,6 +25,7 @@ module delay_bram
     logic delay_change;
 
     logic [10:0] mic_reference_addr;
+    logic [10:0] start_reference_addr;
 
     logic [10:0] mic_1_delay_addr;
     logic [10:0] mic_2_delay_addr;
@@ -37,7 +38,7 @@ module delay_bram
 
     evt_counter count_cycles (
         .clk_in(clk_in),
-        .rst_in(rst_in || delay_change),
+        .rst_in(rst_in),
         .evt_in(valid_in),
         .count_out(mic_reference_addr)
     );
@@ -162,15 +163,24 @@ module delay_bram
             valid_out_r1 <= 0;
             valid_out_r2 <= 0;
             valid_out_r3 <= 0;
-        end if (delay_change) begin
+            valid_out_r4 <= 0;
+            valid_out_r5 <= 0;
+            start_reference_addr <= 0;
+        end else if (delay_change) begin
             summed_audio <= 0;
+            audio_out <= 0;
             orig_delay_done <= 0;
             valid_out_r1 <= 0;
+            valid_out_r2 <= 0;
+            valid_out_r3 <= 0;
+            valid_out_r4 <= 0;
+            valid_out_r5 <= 0;
+            start_reference_addr <= mic_reference_addr;
         end else begin
-            if (mic_1_delay_addr == 0) orig_delay_done[0] <= 1'b1;
-            if (mic_2_delay_addr == 0) orig_delay_done[1] <= 1'b1;
-            if (mic_3_delay_addr == 0) orig_delay_done[2] <= 1'b1;
-            if (mic_4_delay_addr == 0) orig_delay_done[3] <= 1'b1;
+            if (mic_1_delay_addr - start_reference_addr == 0) orig_delay_done[0] <= 1'b1;
+            if (mic_2_delay_addr - start_reference_addr == 0) orig_delay_done[1] <= 1'b1;
+            if (mic_3_delay_addr - start_reference_addr == 0) orig_delay_done[2] <= 1'b1;
+            if (mic_4_delay_addr - start_reference_addr == 0) orig_delay_done[3] <= 1'b1;
 
             // pipeline valid_in signals to valid_out; account for 5-cycle input --> output delay
             // 3 cycles delay for BRAM read, 1 for sum, and 1 for shift
