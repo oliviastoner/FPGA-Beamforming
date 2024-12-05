@@ -8,7 +8,7 @@ module uart_byte_transmit #(
 ) (
     input wire clk_in,
     input wire rst_in,
-    input wire [NUM_BYTES-1:0][7:0] data_in,
+    input wire [NUM_BYTES-1:0][6:0] data_in,
     input wire trigger_in,
     output logic busy_out,
     output logic tx_wire_out
@@ -33,8 +33,8 @@ always_ff @(posedge clk_in) begin
     else if (!uart_busy) begin
         if (trigger_in) begin
             // Send first byte (lsb) to uart
-            uart_data_in <= data_in[0];
-            byte_queue <= {8'b0, data_in[NUM_BYTES-1:1]};
+            uart_data_in <= {1'b0, data_in[0]}; // lower byte sends a 0 alignment bit
+            byte_queue <= {8'b0, {1'b1, data_in[NUM_BYTES-1:1]}}; // high byte sends a 1 alignment bit NOTE: WILL ONLY WORK WITH 2 BYTE
             queue_position <= NUM_BYTES - 1;
             uart_data_valid <= 1;
             busy_out <= 1;
