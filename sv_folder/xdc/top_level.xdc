@@ -87,6 +87,11 @@ set_property -dict {PACKAGE_PIN H3  IOSTANDARD LVCMOS33} [ get_ports "ss1_c[5]"]
 set_property -dict {PACKAGE_PIN E5  IOSTANDARD LVCMOS33} [ get_ports "ss1_c[6]"]
 ##set_property -dict {PACKAGE_PIN J4  IOSTANDARD LVCMOS33} [ get_ports "ss1_c[7]"]
 
+# new for week 6: avoid having Vivado freak out about clock domain crossing!
+set_max_delay -datapath_only 6 -from [get_clocks clk_100_passthrough] -to [get_clocks clk_pll_i]
+set_max_delay -datapath_only 6 -from  [get_clocks clk_pll_i] -to [get_clocks clk_100_passthrough]
+set_max_delay -datapath_only 6 -from  [get_clocks clk_pll_i] -to [get_clocks clk_100_cw_fast]
+set_max_delay -datapath_only 6 -from  [get_clocks clk_100_cw_fast] -to [get_clocks clk_pll_i]
 
 # PMOD A Signals
 
