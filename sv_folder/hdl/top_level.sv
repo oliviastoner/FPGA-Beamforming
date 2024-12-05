@@ -242,7 +242,7 @@ module top_level (
       uart_data_valid <= 0;
       is_even_sample <= 0;
     end
-    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && use_dual_uart)) begin
+    else if ((~sw[10] && dss_valid_out && ~use_dual_uart) || (sw[10] && audio_buff_tvalid && ~use_dual_uart) || (audio_valid_out && use_dual_uart)) begin
       if (!uart_busy) begin
         // Sent via uart if not busy
         uart_data_valid <= 1;
@@ -253,7 +253,7 @@ module top_level (
       end
 
       // Update uart data inputs with the new samples
-      uart_single_data_in <= audio_buff_out; // this will either be from the dram or directly from mics
+      uart_single_data_in <= audio_buff_out; // this will either be from the dram or directly from delay and sum module
       uart_dual_data_in <= {audio_out[1][23:8], audio_out[0][23:8]};
       // Toggle is_even_sample on each new sample
       is_even_sample <= ~is_even_sample;
