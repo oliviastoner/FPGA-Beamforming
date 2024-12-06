@@ -33,7 +33,7 @@ module tdm_receive #(
       // trigger on rising edge still
       if(sck_in && !prev_sck_in)begin
             
-        if (ws_in && !active) begin
+        if (ws_in ) begin
             sck_in_counter <= 0;
             curr_slot   <= 0;
             for (int i = 0; i < SLOTS; i++) audio_out[i] <= 0;
@@ -76,6 +76,7 @@ module tdm_receive #(
         end
         end
         prev_sck_in <= sck_in;
+        //prev_ws_in <= ws_in;
       end
 
 
