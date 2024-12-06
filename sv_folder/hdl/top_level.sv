@@ -30,10 +30,10 @@ module top_level (
 
   // -- CLOCKING --
   // Create a rough clock -- should be replaced by actual clock later
-  localparam MICS = 2;
-  localparam CYCLES_PER_DATA_CLK = 50;
+  localparam MICS = 4;
+  localparam CYCLES_PER_DATA_CLK = 20;
   localparam CYCLES_PER_HALF_DATA_CLK = CYCLES_PER_DATA_CLK / 2;
-  localparam DATA_CLK_CYCLES_PER_MIC_CLK = 64; // Audio will be clocked at 31.25 kHz
+  localparam DATA_CLK_CYCLES_PER_MIC_CLK = 128; // Audio will be clocked at 31.25 kHz
   localparam CYCLES_TILL_MIC_CLK_VALID = 2_000_000;
 
   logic [4:0] data_clk_count;
@@ -84,8 +84,12 @@ module top_level (
   // TDM Microphone Input
   logic [23:0] audio_out[MICS];
   logic audio_valid_out;
+  logic audio_valid_out_prev;
+  logic audio_valid_edge;
 
-  tdm_receive #(.SLOTS(2)) tdm(
+  assign audio_valid_edge = audio_valid_out && ~audio_valid_out_prev;
+
+  tdm_receive #(.SLOTS(4)) tdm(
     .sck_in(data_clk),
     .ws_in(mic_trigger),
     .sd_in(tdm_data_in),
@@ -123,12 +127,18 @@ module top_level (
   logic [31:0] display_val;
 
   always_ff @(posedge clk_100mhz) begin
+    audio_valid_out_prev <= audio_valid_out;
     if (sys_rst) begin
       display_val <= 0;
     end
     // For Testing -- Display Audio Sample when sw[13] High
-    else if (sw[12] && audio_valid_out) begin
-      display_val <= {8'b0, audio_out[0]};
+    else if (sw[13] && audio_valid_edge && ~btn[2]) begin
+      case ({sw[12], sw[11]})
+        2'b00: display_val <= {8'b0, audio_out[0]};
+        2'b01: display_val <= {8'b0, audio_out[1]};
+        2'b10: display_val <= {8'b0, audio_out[2]};
+        2'b11: display_val <= {8'b0, audio_out[3]};
+      endcase
     end else if (sw[13] && dss_valid_out && ~btn[1]) begin
       display_val <= {8'b0, dss_audio_out};
     end
@@ -150,18 +160,18 @@ module top_level (
   logic signed [23:0] dss_audio_out;
   logic dss_valid_out;
 
-  delay_bram delay_sum_shift (
+  delay_bram #(.NUM_MICS(4)) delay_sum_shift (
     .clk_in(clk_100mhz),
     .rst_in(sys_rst),
-    .valid_in(audio_valid_out),
+    .valid_in(audio_valid_edge),
     .delay_1(delay_1),
     .delay_2(delay_2),
     .delay_3(delay_3),
     .delay_4(delay_4),
     .audio_in_1(audio_out[0]),
     .audio_in_2(audio_out[1]),
-    .audio_in_3(24'sb0),
-    .audio_in_4(24'sb0),
+    .audio_in_3(audio_out[2]),
+    .audio_in_4(audio_out[3]),
     .audio_out(dss_audio_out),
     .valid_out(dss_valid_out)
   );
@@ -203,7 +213,7 @@ module top_level (
       uart_data_valid <= 0;
       is_even_sample <= 0;
     end
-    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_out && use_dual_uart)) begin
+    else if ((dss_valid_out && ~use_dual_uart) || (audio_valid_edge && use_dual_uart)) begin
       if (!uart_busy) begin
         // Sent via uart if not busy
         uart_data_valid <= 1;

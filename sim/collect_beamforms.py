@@ -5,6 +5,7 @@ import wave
 import librosa
 import librosa.display
 import soundfile as sf
+import time
 
 # note: we will need to change our BAUD rate to match the clock we run our UART transmission at.
 # we will also need to change SAMPLE_RATE to the correct value.
@@ -13,7 +14,7 @@ import soundfile as sf
 # Set up serial communication
 SERIAL_PORT_NAME = "/dev/cu.usbserial-88742923021D1"
 BAUD_RATE = 921600
-SAMPLE_RATE = 31250 # capturing samples at 8 kHz; will change
+SAMPLE_RATE = 39062.5 # capturing samples at 8 kHz; will change
 AUDIO_LENGTH = 4 # set to record 6 seconds of audio
 BYTES = 2
 
@@ -29,32 +30,42 @@ def save_bytes_as_wave(filename, samples):
             wf.writeframes(sample)
         print(f"Recording saved to {filename}.wav")
 
-def collect_audio(mic_name):
+def collect_uart_audio():
     """
-    Collects audio data for specified length and stores in arrays for mic_0 and mic_1
+    Collects uart audio data for specified length and stores in arrays for mic_0 and mic_1
     """
     print(f"Recording {AUDIO_LENGTH} seconds of audio:")
     uart_data = []
+    time_start = time.time()
     for i in range(int(SAMPLE_RATE*AUDIO_LENGTH)):
         for _ in range(BYTES):
             val = ser.read(1) # read 2 bytes of sample; 16-bit audio data
             uart_data.append(val)
 
-        if ((i+1)%SAMPLE_RATE==0):
-            print(f"{(i+1)/SAMPLE_RATE} seconds complete")
+        if ((i+1)%int(SAMPLE_RATE)==0):
+            print(f"{round((i+1)/SAMPLE_RATE)} seconds complete")
 
+    time_end = time.time()
+    print(f"Time elapsed: {time_end - time_start}")
+    return uart_data
+
+def convert_uart_to_audio(uart_data_in: list[bytes]):
     audio_data = []
+    uart_data: list[bytes] = uart_data_in[::-1]
     while uart_data:
         audio_sample = 0
         audio_valid = False
+        # Iterate over the number of bytes
         for i in range(2):
             data = None
             alignment_bit = None
+            
+            # Check the alignment bit of the byte
             while alignment_bit != i and uart_data:
                 if alignment_bit is not None:
                     print("Alignment missed")
 
-                uart_byte = uart_data.pop(0)
+                uart_byte = uart_data.pop()
                 data = 0b1111111 & ord(uart_byte)
                 alignment_bit = ord(uart_byte) >> 7
             
@@ -75,18 +86,21 @@ def collect_audio(mic_name):
             audio_data.append(audio_sample << 2) # shift data to 16 bit
         else:
             continue
-
-    if mic_name is not None:
-        save_bytes_as_wave(mic_name, [sample.to_bytes(2, 'little', signed=True) for sample in audio_data])
               
     return audio_data
 
 
-def collect_sweep(inputs):
+def plot_frequencies(audio_signal):
+    n = len(audio_signal)
+    frequencies = np.fft.rfftfreq(n, d=1/SAMPLE_RATE)  # Frequency range
+    fft_magnitude = np.abs(np.fft.rfft(audio_signal)) 
+
+
+def collect_sweep(inputs, save_audio = True):
     all_sweeps = {}
     for _ in range(inputs):
         angle = int(input("Enter the angle the beamformer is set to: "))
-        sweep_data = collect_audio(f"beam_ang_{angle}")
+        sweep_data = collect_uart_audio()
 
         all_sweeps[angle] = sweep_data
 
@@ -94,8 +108,35 @@ def collect_sweep(inputs):
     count = 1
     for angle, sweep_data in all_sweeps.items():
         plt.subplot(inputs, 1, count)
-        normalized_sweep = np.array(sweep_data, dtype=np.int16).astype(np.float32) / 32768.0
+        audio_data = convert_uart_to_audio(sweep_data)
+
+        if save_audio:
+            save_bytes_as_wave(f"beam_ang_{angle}", [sample.to_bytes(2, 'little', signed=True) for sample in audio_data])
+
+        normalized_sweep = np.array(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
         librosa.display.waveshow(normalized_sweep, sr=SAMPLE_RATE, label=f'{angle} deg', color='#00000B')
+        plt.legend()
+        count+=1
+
+    plt.tight_layout()
+    plt.show()
+
+    plt.subplots(inputs, 1, sharey=True, sharex=True)
+    count = 1
+    for angle, sweep_data in all_sweeps.items():
+        plt.subplot(inputs, 1, count)
+        audio_data = convert_uart_to_audio(sweep_data)
+
+        n = len(audio_data)
+        frequencies = np.fft.rfftfreq(n, d=1/SAMPLE_RATE)  # Frequency range
+        fft_magnitude = np.abs(np.fft.rfft(audio_data)) 
+
+        plt.subplot(inputs, 1, count)
+        plt.plot(frequencies, fft_magnitude)
+        plt.title(f"Frequency Spectrum {angle}")
+        plt.xlabel("Frequency (Hz)")
+        plt.ylabel("Amplitude")
+        plt.grid()
         plt.legend()
         count+=1
 
