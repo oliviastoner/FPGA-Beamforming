@@ -33,7 +33,7 @@ module top_level (
   localparam MICS = 4;
   localparam CYCLES_PER_DATA_CLK = 20;
   localparam CYCLES_PER_HALF_DATA_CLK = CYCLES_PER_DATA_CLK / 2;
-  localparam DATA_CLK_CYCLES_PER_MIC_CLK = 128; // Audio will be clocked at 31.25 kHz
+  localparam DATA_CLK_CYCLES_PER_MIC_CLK = 128; // Audio will be clocked at 39.0625 kHz
   localparam CYCLES_TILL_MIC_CLK_VALID = 2_000_000;
 
   logic [4:0] data_clk_count;
@@ -90,6 +90,7 @@ module top_level (
   assign audio_valid_edge = audio_valid_out && ~audio_valid_out_prev;
 
   tdm_receive #(.SLOTS(4)) tdm(
+    .clk_in(clk_100mhz)
     .sck_in(data_clk),
     .ws_in(mic_trigger),
     .sd_in(tdm_data_in),
@@ -259,6 +260,7 @@ module top_level (
   // );
 
   // logic spk_out;
+  
 
   // pdm #(.NBITS(24)) spk_pdm  (
   //   .clk(clk_100mhz),
@@ -267,6 +269,19 @@ module top_level (
   //   .dout(spk_out),
   //   .error()
   //  );
+  logic signed [23:0] line_out_audio;
+  logic pdm_out;
+  assign line_out_audio = dss_valid_out ? dss_audio_out : 24'b0; // send dss audio and silence otherwise
+  pdm #(.BIT_WIDTH(24)) spk_pdm(
+    .clk_in(clk_100mhz),
+    .sample_in(mic_trigger),
+    .rst_in(sys_rst),
+    .audio_in(line_out_audio),
+    .pdm_out(pdm_out)
+  );
+
+  assign spkl = pdm_out;
+  assing spkr = pdm_out;
 
   //  // set both output channels equal to the same PWM signal!
   //  assign spkl = spk_out;
