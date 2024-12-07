@@ -90,7 +90,7 @@ module top_level (
   assign audio_valid_edge = audio_valid_out && ~audio_valid_out_prev;
 
   tdm_receive #(.SLOTS(4)) tdm(
-    .clk_in(clk_100mhz)
+    .clk_in(clk_100mhz),
     .sck_in(data_clk),
     .ws_in(mic_trigger),
     .sd_in(tdm_data_in),
