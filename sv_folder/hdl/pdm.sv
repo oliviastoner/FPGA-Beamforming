@@ -1,7 +1,7 @@
 module pdm #( parameter BIT_WIDTH = 24)
 (   input wire clk_in, //100MHz clock
     input wire sample_in,                 // oversampled clock/data clock (128*fs)
-    input logic rst_in,                 // Active-high reset
+    input wire rst_in,                 // Active-high reset
     input logic signed [BIT_WIDTH-1:0] audio_in, // 24-bit signed input audio signal
     output logic pdm_out             // 1-bit PDM output
 );
@@ -10,7 +10,7 @@ module pdm #( parameter BIT_WIDTH = 24)
     
     // Internal registers
     
-    logic signed [BIT_WIDTH:0] error;  // 25-bit error feedback
+    logic signed [BIT_WIDTH+1:0] error;  // 25-bit error feedback
     logic prev_sample_in;
 
     always_ff @(posedge clk_in) begin

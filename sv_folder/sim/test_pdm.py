@@ -13,11 +13,13 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import scipy
+import scipy.signal as signal
 
 # Global Constants
 SAMPLE_RATE = 39062.5  # Audio sample rate in Hz
-OVERSAMPLE_RATE = 128 * SAMPLE_RATE  # PDM clock frequency
-DURATION = 0.004  # Test duration in seconds 
+OVERSAMPLE_FACTOR = 128
+OVERSAMPLE_RATE = OVERSAMPLE_FACTOR * SAMPLE_RATE  # PDM clock frequency
+DURATION = 0.002  # Test duration in seconds 
 AMPLITUDE = (2**23) - 1  # Max amplitude for 24-bit signed audio
 FREQUENCY = 1000  # 1 kHz sine wave
 
@@ -75,7 +77,6 @@ def plot_results(pdm_output, sine_wave, time_axis, duration = DURATION, amplitud
     # interpolate the sine wave so it matches shape with the pdm
     interp_func = scipy.interpolate.interp1d(np.linspace(0, duration, len(sine_wave)), sine_wave, kind='linear')
     interpolated_sine_wave = interp_func(time_axis)
-
     # Plot and save the PDM output overlayed with the audio input
     plt.figure(figsize=(10, 5))
     plt.plot(time_axis, interpolated_sine_wave / amplitude, label="Interpolated Normalized Sine Wave", color="blue", linewidth=1.5)
@@ -103,11 +104,7 @@ async def test_pdm_modulator(dut):
     # Start the clock divider coroutine
     cocotb.start_soon(clock_divider(dut.clk_in, 20, dut.sample_in))
 
-    # Reset the DUT
-    dut.rst_in.value = 1
-    await RisingEdge(dut.clk_in)  # Wait for 1 clock edge
-    await FallingEdge(dut.clk_in)
-    dut.rst_in.value = 0
+    
 
     # Generate test data: a sine wave
     sine_wave = generate_sine_wave(AMPLITUDE, FREQUENCY, SAMPLE_RATE, DURATION)
@@ -119,9 +116,14 @@ async def test_pdm_modulator(dut):
     pdm_output = []  # Collect the PDM output for plotting
     time_axis = np.linspace(0, DURATION, int(total_samples))  # Time axis for plotting
 
+    # Reset the DUT
+    dut.rst_in.value = 1
+    await RisingEdge(dut.clk_in)  # Wait for 1 clock edge
+    await FallingEdge(dut.clk_in)
+    dut.rst_in.value = 0
     # Feed the sine wave into the DUT
     for i, sample in enumerate(sine_wave):
-        for _ in range(int(OVERSAMPLE_RATE // SAMPLE_RATE)):
+        for _ in range(OVERSAMPLE_FACTOR):
             dut.audio_in.value = int(sample)
             await RisingEdge(dut.sample_in)
 
@@ -137,7 +139,10 @@ async def test_pdm_modulator(dut):
     pdm_density = total_high / total_samples
     expected_density = np.mean((sine_wave / AMPLITUDE) * 0.5 + .5)
 
-    plot_results(pdm_output,sine_wave,time_axis)
+    try:
+        plot_results(pdm_output,sine_wave,time_axis)
+    except:
+        print("couldn't plot")
 
     # Check that the PDM density matches the input signal
     assert abs(pdm_density - expected_density) < 0.01, (

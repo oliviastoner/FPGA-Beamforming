@@ -42,4 +42,4 @@ def generate_display_lut():
 
 if __name__ == "__main__":
     # generate_display_lut()
-    generate_lut(float(input("\nEnter the distance between microphones (in m.): ")), int(input("\nEnter the sampling frequency (in Hz): ")))
+    generate_lut(float(input("\nEnter the distance between microphones (in m.): ")), float(input("\nEnter the sampling frequency (in Hz): ")))

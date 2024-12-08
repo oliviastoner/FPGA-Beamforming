@@ -57,6 +57,10 @@ async def test_single_microphone(dut):
     dut.active.value=0
     await RisingEdge(dut.clk_in)
 
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
+
     # Start the clock divider coroutine
     cocotb.start_soon(clock_divider(dut.clk_in, 50, dut.sck_in))
 
@@ -109,6 +113,10 @@ async def test_four_microphones(dut):
     dut.ws_in.value = 0
     dut.active.value=0
     await RisingEdge(dut.clk_in)
+
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
 
     # Start the clock divider coroutine
     cocotb.start_soon(clock_divider(dut.clk_in, 50, dut.sck_in))
@@ -176,6 +184,9 @@ async def test_two_samples_four_microphones(dut):
     cocotb.start_soon(clock_divider_neg(dut.sck_in, 128, dut.ws_in))
 
     
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
 
     # Generate 24 bits of random data for a single microphone
     sample_data = [1,0,1,0,  0,0,1,0,  0,0,0,1,   1,0,0,0,   0,1,0,0,   1,1,0,0  ]

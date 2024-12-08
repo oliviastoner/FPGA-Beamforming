@@ -12,7 +12,7 @@ import time
 # however, we will keep it consistent with the BAUD/sampling rate from the audio sampling lab for now.
 
 # Set up serial communication
-SERIAL_PORT_NAME = "/dev/cu.usbserial-88742923021D1"
+SERIAL_PORT_NAME = "/dev/ttyUSB1"#"/dev/cu.usbserial-88742923021D1"
 BAUD_RATE = 921600
 SAMPLE_RATE = 39062.5 # capturing samples at 8 kHz; will change
 AUDIO_LENGTH = 4 # set to record 6 seconds of audio

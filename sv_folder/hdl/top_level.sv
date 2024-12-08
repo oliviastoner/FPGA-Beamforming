@@ -17,7 +17,8 @@ module top_level (
     output logic [6:0] ss0_c,  //cathode controls for the segments of upper four digits
     output logic [6:0] ss1_c, //cathode controls for the segments of lower four digits
     output logic spkl,
-    output logic spkr
+    output logic spkr,
+    output logic audio_port_out
 );
 
   //shut up those rgb LEDs for now (active high):
@@ -90,7 +91,7 @@ module top_level (
   assign audio_valid_edge = audio_valid_out && ~audio_valid_out_prev;
 
   tdm_receive #(.SLOTS(4)) tdm(
-    .clk_in(clk_100mhz),
+    //.clk_in(clk_100mhz),
     .sck_in(data_clk),
     .ws_in(mic_trigger),
     .sd_in(tdm_data_in),
@@ -271,17 +272,18 @@ module top_level (
   //  );
   logic signed [23:0] line_out_audio;
   logic pdm_out;
-  assign line_out_audio = dss_valid_out ? dss_audio_out : 24'b0; // send dss audio and silence otherwise
+  assign line_out_audio = display_val[23:0];//24'b1111_1111_1111_1111_1111_1111;//$signed(24'b0000_0000_0000_0000_1111_1111);//dss_valid_out ? 24'b0 : 24'b1111_1111_1111_1111_1111_1111; // send dss audio and silence otherwise
   pdm #(.BIT_WIDTH(24)) spk_pdm(
     .clk_in(clk_100mhz),
-    .sample_in(mic_trigger),
+    .sample_in(data_clk),
     .rst_in(sys_rst),
     .audio_in(line_out_audio),
     .pdm_out(pdm_out)
   );
 
   assign spkl = pdm_out;
-  assing spkr = pdm_out;
+  assign spkr = pdm_out;
+  assign audio_port_out = pdm_out;
 
   //  // set both output channels equal to the same PWM signal!
   //  assign spkl = spk_out;
