@@ -260,19 +260,23 @@ module top_level (
   // .tx_wire_out(uart_dual_txd)
   // );
 
-  // logic spk_out;
   
 
-  // pdm #(.NBITS(24)) spk_pdm  (
-  //   .clk(clk_100mhz),
-  //   .rst(sys_rst),
-  //   .din(line_out_audio),
-  //   .dout(spk_out),
-  //   .error()
-  //  );
+  // assign line out audio
+  always_ff @(posedge clk_100mhz)begin
+    if(sys_rst)begin
+      line_out_audio <= 0;
+    end
+    else begin
+      if(dss_valid_out   )begin
+        line_out_audio <= dss_audio_out;
+      end
+    end
+  end
+
+
   logic signed [23:0] line_out_audio;
   logic pdm_out;
-  assign line_out_audio = display_val[23:0];//24'b1111_1111_1111_1111_1111_1111;//$signed(24'b0000_0000_0000_0000_1111_1111);//dss_valid_out ? 24'b0 : 24'b1111_1111_1111_1111_1111_1111; // send dss audio and silence otherwise
   pdm #(.BIT_WIDTH(24)) spk_pdm(
     .clk_in(clk_100mhz),
     .sample_in(data_clk),
