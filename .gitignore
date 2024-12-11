@@ -6,3 +6,5 @@
 !/sv_folder/obj/final.bit
 *.out
 *.DS_Store
+*.wav
+/sim/*.txt

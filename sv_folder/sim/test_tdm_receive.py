@@ -11,7 +11,35 @@ from cocotb.utils import get_sim_time as gst
 from cocotb.runner import get_runner
 
 
+@cocotb.coroutine
+async def clock_divider(clock, divider, trigger_signal):
+    """
+    Clock divider coroutine.
+    """
+    count = 0
+    while True:
+        await RisingEdge(clock)  # Wait for a rising edge of the input clock
+        if count == divider-1:
+            count = 0
+            trigger_signal.value = 1 if trigger_signal.value == 0 else 0  # Toggle the tri
+        else:
+            #trigger_signal.value =  0
+            count+=1
 
+@cocotb.coroutine
+async def clock_divider_neg(clock, divider, trigger_signal):
+    """
+    Clock divider coroutine.
+    """
+    count = 0
+    while True:
+        await FallingEdge(clock)  # Wait for a rising edge of the input clock
+        if count == divider-1:
+            count = 0
+            trigger_signal.value =  1 #if trigger_signal.value == 0 else 0  # Toggle the tri
+        else:
+            trigger_signal.value = 0
+            count+=1
 
 
 
@@ -21,9 +49,24 @@ async def test_single_microphone(dut):
 
 
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
-   
+    cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
+    
+    await FallingEdge(dut.clk_in)
+    dut.sck_in.value = 0
+    dut.ws_in.value = 0
+    dut.active.value=0
+    await RisingEdge(dut.clk_in)
 
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
+
+    # Start the clock divider coroutine
+    cocotb.start_soon(clock_divider(dut.clk_in, 50, dut.sck_in))
+
+    cocotb.start_soon(clock_divider_neg(dut.sck_in, 128, dut.ws_in))
+
+    
 
     # Generate 24 bits of random data for a single microphone
     sample_data = [1,0,1,0,  0,0,1,0,  0,0,0,1,   1,0,0,0,   0,1,0,0,   1,1,0,0  ]
@@ -31,22 +74,22 @@ async def test_single_microphone(dut):
 
 
     # Send the ws_in pulse
-    dut.ws_in.value = 1
-    await RisingEdge(dut.sck_in)
-    await FallingEdge(dut.sck_in)
-    dut.ws_in.value = 0
-
-
+    await RisingEdge(dut.ws_in)
+    
+    
     # Send the sample data bit-by-bit on the rising edge of sck_in
     for bit in sample_data:
+        await FallingEdge(dut.sck_in)
         dut.sd_in.value= bit
         await RisingEdge(dut.sck_in)
+    
 
 
     # Check if the received data matches the expected value
     await RisingEdge(dut.sck_in)  # Allow time for `audio_valid` signal to propagate
     #assert dut.audio_valid_out.value == 1, "audio_valid should be high after receiving 24 bits"
-    assert dut.audio_out.value[0] == expected_value, f"Expected {expected_value}, but got {dut.audio_out1.value}"
+    print(dut.audio_out.value[0].integer)
+    assert dut.audio_out.value[0].integer == expected_value, f"Expected {expected_value}, but got {dut.audio_out.value[0]}"
 
 
     for i in range(9):
@@ -61,10 +104,26 @@ async def test_four_microphones(dut):
 
 
    
+    
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
-   
+    cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
+    
+    await FallingEdge(dut.clk_in)
+    dut.sck_in.value = 0
+    dut.ws_in.value = 0
+    dut.active.value=0
+    await RisingEdge(dut.clk_in)
 
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
+
+    # Start the clock divider coroutine
+    cocotb.start_soon(clock_divider(dut.clk_in, 50, dut.sck_in))
+
+    cocotb.start_soon(clock_divider_neg(dut.sck_in, 128, dut.ws_in))
+
+    
 
     # Generate 24 bits of random data for a single microphone
     sample_data = [1,0,1,0,  0,0,1,0,  0,0,0,1,   1,0,0,0,   0,1,0,0,   1,1,0,0  ]
@@ -72,16 +131,14 @@ async def test_four_microphones(dut):
 
 
     # Send the ws_in pulse
-    dut.ws_in.value = 1
-    await RisingEdge(dut.sck_in)
-    await FallingEdge(dut.sck_in)
-    dut.ws_in.value = 0
+    await RisingEdge(dut.ws_in)
 
 
     for i in range(4):
         #assert dut.curr_slot.value == (i)%4, f"curr slot should now be {(i%4)}, but got {dut.curr_slot.value}"
         # Send the sample data bit-by-bit on the rising edge of sck_in
         for bit in sample_data:
+            await FallingEdge(dut.sck_in)
             dut.sd_in.value= bit
             await RisingEdge(dut.sck_in)
 
@@ -113,27 +170,43 @@ async def test_two_samples_four_microphones(dut):
 
 
     dut._log.info("Starting...")
-    cocotb.start_soon(Clock(dut.sck_in, 10, units="ns").start())
-   
+    cocotb.start_soon(Clock(dut.clk_in, 10, units="ns").start())
+    
+    await FallingEdge(dut.clk_in)
+    dut.sck_in.value = 0
+    dut.ws_in.value = 0
+    dut.active.value=0
+    await RisingEdge(dut.clk_in)
 
+    # Start the clock divider coroutine
+    cocotb.start_soon(clock_divider(dut.clk_in, 50, dut.sck_in))
+
+    cocotb.start_soon(clock_divider_neg(dut.sck_in, 128, dut.ws_in))
+
+    
+    dut.rst_in.value = 1
+    await ClockCycles(dut.clk_in,2)
+    dut.rst_in.value = 0
 
     # Generate 24 bits of random data for a single microphone
     sample_data = [1,0,1,0,  0,0,1,0,  0,0,0,1,   1,0,0,0,   0,1,0,0,   1,1,0,0  ]
     expected_value = 0b101000100001100001001100 #int(''.join(map(str, sample_data)), 2)
 
 
+    
+
+
     for _ in range(2):
         # Send the ws_in pulse
-        dut.ws_in.value = 1
-        await RisingEdge(dut.sck_in)
-        await FallingEdge(dut.sck_in)
-        dut.ws_in.value = 0
+        await RisingEdge(dut.ws_in)
+        
 
 
         for i in range(4):
             #assert dut.curr_slot.value == (i)%4, f"curr slot should now be {(i%4)}, but got {dut.curr_slot.value}"
             # Send the sample data bit-by-bit on the rising edge of sck_in
             for bit in sample_data:
+                await FallingEdge(dut.sck_in)
                 dut.sd_in.value= bit
                 await RisingEdge(dut.sck_in)
 
