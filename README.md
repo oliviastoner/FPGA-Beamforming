@@ -7,4 +7,3 @@ Contains folders for building and testing System Verilog to be put onto the FPGA
 ## sim
 Contains the Python scripts to plot and save the output audio received by the computer. collect_beamforms.py was used in our demo video to plot the recieved audio from our system at different angles.
 
-<mark>Do NOT upload sim_build files or obj files that aren't the final.bit file</mark>
